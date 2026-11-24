@@ -1,0 +1,49 @@
+# =============================================================================
+# CoListen: Git Ignore Configuration (Strict Secrets & Build Artifacts)
+# =============================================================================
+
+# --- Environment & Secret Keys (CRITICAL: NEVER COMMIT) ---
+.env
+.env.*
+!.env.example
+*.env
+
+# --- Firebase Credentials & Native Secret Plists ---
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+macos/Runner/GoogleService-Info.plist
+firebase_options.dart
+lib/firebase_options.dart
+lib/core/config/firebase_options.dart
+
+# --- Keystores & Signing Certificates ---
+*.jks
+*.keystore
+*.p12
+*.key
+*.mobileprovision
+key.properties
+
+# --- Flutter / Dart Build & Cache ---
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+.pub-cache/
+.pub/
+
+# --- IDE & OS Metadata ---
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Firebase Functions Node & Secret Artifacts ---
+functions/node_modules/
+functions/lib/
+functions/.env.local
+functions/.env.*.local
+functions/service-account.json

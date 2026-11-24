@@ -1,0 +1,68 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "users": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    "roomCodes": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && (!data.exists() || !newData.exists())"
+      }
+    },
+
+    "presence": {
+      "$roomId": {
+        ".read": "auth != null && root.child('rooms/' + $roomId + '/members/' + auth.uid).exists()",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      }
+    },
+
+    "userInvites": {
+      "$toUid": {
+        ".read": "auth != null && auth.uid === $toUid",
+        "$inviteId": {
+          ".write": "auth != null && (auth.uid === $toUid || auth.uid === newData.child('fromUid').val())"
+        }
+      }
+    },
+
+    "rooms": {
+      "$roomId": {
+        ".read": "auth != null && data.child('members/' + auth.uid).exists()",
+
+        ".write": "auth != null && (!data.exists() || data.child('adminId').val() === auth.uid)",
+
+        "members": {
+          "$uid": {
+            ".write": "auth != null && (auth.uid === $uid || data.parent().parent().child('adminId').val() === auth.uid || newData.parent().parent().child('adminId').val() === auth.uid)"
+          }
+        },
+
+        "playback": {
+          ".write": "auth != null && (data.parent().child('adminId').val() === auth.uid || data.parent().child('members/' + auth.uid + '/isController').val() === true)"
+        },
+
+        "queue": {
+          "$itemId": {
+            ".write": "auth != null && (data.parent().parent().child('adminId').val() === auth.uid || data.parent().parent().child('members/' + auth.uid + '/isController').val() === true || (data.parent().parent().child('settings/membersCanAddSongs').val() === true && !data.exists()) || (data.child('addedBy').val() === auth.uid))"
+          }
+        },
+
+        "reactions": {
+          "$reactionId": {
+            ".write": "auth != null && root.child('rooms/' + $roomId + '/members/' + auth.uid).exists()"
+          }
+        }
+      }
+    }
+  }
+}
