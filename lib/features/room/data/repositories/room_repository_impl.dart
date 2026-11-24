@@ -112,23 +112,25 @@ class RoomRepositoryImpl implements RoomRepository {
       throw Exception('Room code "$cleanCode" was not found.');
     }
 
+    // Add user as listener member first (ensures member read permission on rooms/$roomId)
+    await _database.ref('rooms/$roomId/members/$uid').update({
+      'displayName': displayName,
+      'isController': false,
+      'joinedAt': ServerValue.timestamp,
+    });
+
     final roomSnap = await _database.ref('rooms/$roomId').get();
     if (!roomSnap.exists) {
+      await _database.ref('rooms/$roomId/members/$uid').remove();
       throw Exception('This room is no longer available.');
     }
 
     final roomData = roomSnap.value as Map<dynamic, dynamic>;
     final isActive = roomData['isActive'] as bool? ?? false;
     if (!isActive) {
+      await _database.ref('rooms/$roomId/members/$uid').remove();
       throw Exception('This room has ended.');
     }
-
-    // Add user as listener member
-    await _database.ref('rooms/$roomId/members/$uid').update({
-      'displayName': displayName,
-      'isController': false,
-      'joinedAt': ServerValue.timestamp,
-    });
 
     return roomId;
   }

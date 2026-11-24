@@ -13,6 +13,7 @@ class QueueItemEntity {
   final DateTime addedAt;
   final double order;
   final Map<String, bool> voteSkipUids;
+  final Map<String, bool> upvoteUids;
 
   const QueueItemEntity({
     required this.id,
@@ -27,11 +28,22 @@ class QueueItemEntity {
     required this.addedAt,
     required this.order,
     this.voteSkipUids = const {},
+    this.upvoteUids = const {},
   });
 
   int get voteSkipCount => voteSkipUids.length;
+  int get upvoteCount => upvoteUids.length;
 
   bool hasUserVoted(String uid) => voteSkipUids[uid] == true;
+  bool hasUserUpvoted(String uid) => upvoteUids[uid] == true;
+
+  /// Comparator for voting-based queue ranking:
+  /// Highest upvotes first, then earliest order / added time
+  int compareTo(QueueItemEntity other) {
+    final voteDiff = other.upvoteCount.compareTo(upvoteCount);
+    if (voteDiff != 0) return voteDiff;
+    return order.compareTo(other.order);
+  }
 
   bool shouldSkip(int totalMembers, int thresholdPercent) {
     if (totalMembers <= 0) return false;
@@ -58,6 +70,7 @@ class QueueItemEntity {
       'addedAt': addedAt.millisecondsSinceEpoch,
       'order': order,
       'voteSkipUids': voteSkipUids,
+      'upvoteUids': upvoteUids,
     };
   }
 
@@ -66,6 +79,13 @@ class QueueItemEntity {
     if (map['voteSkipUids'] != null && map['voteSkipUids'] is Map) {
       (map['voteSkipUids'] as Map).forEach((k, v) {
         if (v == true) votes[k.toString()] = true;
+      });
+    }
+
+    final upvotes = <String, bool>{};
+    if (map['upvoteUids'] != null && map['upvoteUids'] is Map) {
+      (map['upvoteUids'] as Map).forEach((k, v) {
+        if (v == true) upvotes[k.toString()] = true;
       });
     }
 
@@ -84,6 +104,7 @@ class QueueItemEntity {
           : DateTime.now(),
       order: (map['order'] as num?)?.toDouble() ?? 1.0,
       voteSkipUids: votes,
+      upvoteUids: upvotes,
     );
   }
 
@@ -100,6 +121,7 @@ class QueueItemEntity {
     DateTime? addedAt,
     double? order,
     Map<String, bool>? voteSkipUids,
+    Map<String, bool>? upvoteUids,
   }) {
     return QueueItemEntity(
       id: id ?? this.id,
@@ -114,6 +136,7 @@ class QueueItemEntity {
       addedAt: addedAt ?? this.addedAt,
       order: order ?? this.order,
       voteSkipUids: voteSkipUids ?? this.voteSkipUids,
+      upvoteUids: upvoteUids ?? this.upvoteUids,
     );
   }
 }

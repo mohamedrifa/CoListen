@@ -12,6 +12,7 @@ class YoutubeIframePlayerService implements PlayerService {
   final _positionController = StreamController<Duration>.broadcast();
   Timer? _positionTimer;
   StreamSubscription? _playerStateSubscription;
+  double _cachedDurationSec = 0.0;
 
   YoutubePlayerController get controller {
     _controller ??= YoutubePlayerController(
@@ -50,25 +51,51 @@ class YoutubeIframePlayerService implements PlayerService {
           _currentStatus = PlayerStatus.playing;
           _startPositionPolling();
           _injectAdBlockerScript();
+          _injectBackgroundPlaybackScript();
+          _statusController.add(_currentStatus);
           break;
         case PlayerState.paused:
-          _currentStatus = PlayerStatus.paused;
-          _stopPositionPolling();
+          _handlePausedEvent();
           break;
         case PlayerState.buffering:
           _currentStatus = PlayerStatus.buffering;
           _injectAdBlockerScript();
+          _statusController.add(_currentStatus);
           break;
         case PlayerState.ended:
           _currentStatus = PlayerStatus.ended;
           _stopPositionPolling();
+          _statusController.add(_currentStatus);
           break;
         default:
           _currentStatus = PlayerStatus.idle;
+          _statusController.add(_currentStatus);
           break;
       }
-      _statusController.add(_currentStatus);
     });
+  }
+
+  Future<void> _handlePausedEvent() async {
+    try {
+      final seconds = await controller.currentTime;
+      if (_cachedDurationSec <= 0) {
+        final dur = await controller.duration;
+        if (dur > 0) _cachedDurationSec = dur;
+      }
+      // If paused within 2.0s of end of track, mobile YouTube reached endscreen
+      if (_cachedDurationSec > 3 && seconds >= (_cachedDurationSec - 2.0)) {
+        if (_currentStatus != PlayerStatus.ended) {
+          _currentStatus = PlayerStatus.ended;
+          _stopPositionPolling();
+          _statusController.add(_currentStatus);
+          return;
+        }
+      }
+    } catch (_) {}
+
+    _currentStatus = PlayerStatus.paused;
+    _stopPositionPolling();
+    _statusController.add(_currentStatus);
   }
 
   void _startPositionPolling() {
@@ -80,6 +107,21 @@ class YoutubeIframePlayerService implements PlayerService {
           final seconds = await _controller!.currentTime;
           _currentPosition = Duration(milliseconds: (seconds * 1000).toInt());
           _positionController.add(_currentPosition);
+
+          if (_cachedDurationSec <= 0) {
+            final dur = await _controller!.duration;
+            if (dur > 0) _cachedDurationSec = dur;
+          }
+
+          // Position-based End of Track Detection: ensures smooth queue progression
+          // even if YouTube mobile player pauses at the end instead of firing ended event
+          if (_cachedDurationSec > 3 && seconds >= (_cachedDurationSec - 1.5)) {
+            if (_currentStatus != PlayerStatus.ended) {
+              _currentStatus = PlayerStatus.ended;
+              _stopPositionPolling();
+              _statusController.add(_currentStatus);
+            }
+          }
         } catch (_) {
           // JS bridge busy or uninitialized
         }
@@ -134,6 +176,63 @@ class YoutubeIframePlayerService implements PlayerService {
     }
   }
 
+  void _injectBackgroundPlaybackScript() {
+    try {
+      // ignore: invalid_use_of_internal_member
+      controller.webViewController.runJavaScript('''
+        (function() {
+          if (window._bgPlaybackInjected) return;
+          window._bgPlaybackInjected = true;
+
+          // 1. Spoof visibility properties so YouTube never treats the document as hidden
+          try {
+            Object.defineProperties(document, {
+              hidden: { value: false, writable: false },
+              visibilityState: { value: 'visible', writable: false },
+              webkitHidden: { value: false, writable: false },
+              webkitVisibilityState: { value: 'visible', writable: false }
+            });
+          } catch(e) {}
+
+          // 2. Suppress visibilitychange events so YouTube does not pause on backgrounding
+          window.addEventListener('visibilitychange', function(e) {
+            e.stopImmediatePropagation();
+          }, true);
+
+          document.addEventListener('visibilitychange', function(e) {
+            e.stopImmediatePropagation();
+          }, true);
+
+          // 3. Continuous End-of-Track Watcher & HTML5 Ended Event Binding
+          setInterval(function() {
+            try {
+              if (typeof player !== 'undefined' && player && typeof player.getCurrentTime === 'function') {
+                var cur = player.getCurrentTime();
+                var dur = player.getDuration();
+                if (dur > 3 && cur >= (dur - 1.2)) {
+                  if (typeof sendMessage === 'function') {
+                    sendMessage('StateChange', 0);
+                  }
+                }
+              }
+              var v = document.querySelector('video');
+              if (v && !v._endedBound) {
+                v._endedBound = true;
+                v.addEventListener('ended', function() {
+                  if (typeof sendMessage === 'function') {
+                    sendMessage('StateChange', 0);
+                  }
+                });
+              }
+            } catch(e) {}
+          }, 500);
+        })();
+      ''');
+    } catch (_) {
+      // Ignore if webview not ready
+    }
+  }
+
   @override
   Future<void> loadTrack({
     required String trackId,
@@ -143,6 +242,7 @@ class YoutubeIframePlayerService implements PlayerService {
   }) async {
     _trackId = trackId;
     _currentPosition = startPosition;
+    _cachedDurationSec = 0.0;
 
     try {
       if (autoPlay) {

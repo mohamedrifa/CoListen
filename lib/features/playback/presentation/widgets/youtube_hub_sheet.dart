@@ -8,6 +8,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../queue/domain/entities/queue_item_entity.dart';
 import '../../../queue/domain/services/song_search_service.dart';
+import '../../../queue/domain/services/youtube_suggestion_pool.dart';
 import '../../../queue/presentation/providers/queue_providers.dart';
 import '../../../room/domain/entities/room_entity.dart';
 import '../../domain/entities/playback_state_entity.dart';
@@ -278,7 +279,7 @@ class _YouTubeHubSheetState extends ConsumerState<YouTubeHubSheet> {
             };
           }
 
-          // 5. Ensure background audio in Hub WebView is muted and paused
+          // 5. Ensure video playback inside Hub WebView is paused (audio goes through main App Player)
           if (!window._clVideoObserverAttached) {
             window._clVideoObserverAttached = true;
             const obs = new MutationObserver(function() {
@@ -286,6 +287,46 @@ class _YouTubeHubSheetState extends ConsumerState<YouTubeHubSheet> {
             });
             obs.observe(document.documentElement || document.body, { childList: true, subtree: true });
           }
+
+          // 6. Extract visible playlist items, recommendations & Up Next tracks for autoplay
+          function extractAutoplaySuggestions() {
+            try {
+              const list = [];
+              const elements = document.querySelectorAll(
+                'ytm-video-with-context-renderer, ytm-compact-video-renderer, ytm-playlist-panel-video-renderer, a[href*="/watch?v="]'
+              );
+              elements.forEach(function(el) {
+                const a = el.tagName === 'A' ? el : el.querySelector('a[href*="/watch?v="]');
+                if (!a) return;
+                const href = a.getAttribute('href') || a.href || '';
+                const vMatch = href.match(/[?&]v=([^&#]+)/);
+                if (vMatch && vMatch[1]) {
+                  const id = vMatch[1];
+                  let title = a.getAttribute('aria-label') || '';
+                  if (!title) {
+                    const h = el.querySelector('.media-item-headline, .compact-media-item-headline, h3, h4, .title');
+                    if (h) title = h.innerText || h.textContent || '';
+                  }
+                  if (title) {
+                    title = title.split('\\n')[0].replace(/•.*/, '').replace(/\\d+:\\d+.*/, '').trim();
+                  }
+                  if (id && title && !list.some(function(x) { return x.videoId === id; })) {
+                    list.push({ videoId: id, title: title });
+                  }
+                }
+              });
+              if (list.length > 0 && window.CoListenBridge) {
+                window.CoListenBridge.postMessage(JSON.stringify({
+                  type: 'SUGGESTIONS_EXTRACTED',
+                  items: list.slice(0, 20)
+                }));
+              }
+            } catch(e) {}
+          }
+          if (!window._clSuggestionInterval) {
+            window._clSuggestionInterval = setInterval(extractAutoplaySuggestions, 6000);
+          }
+          setTimeout(extractAutoplaySuggestions, 1500);
 
           pauseAllVideos();
         })();
@@ -304,6 +345,15 @@ class _YouTubeHubSheetState extends ConsumerState<YouTubeHubSheet> {
         final title = data['title'] as String? ?? 'YouTube Video';
         if (videoId != null && videoId.isNotEmpty) {
           _handleVideoTap(videoId, title);
+        }
+      } else if (type == 'SUGGESTIONS_EXTRACTED') {
+        final rawItems = data['items'];
+        if (rawItems is List) {
+          final items = rawItems
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+          YouTubeSuggestionPool.updateSuggestions(items);
         }
       }
     } catch (_) {}

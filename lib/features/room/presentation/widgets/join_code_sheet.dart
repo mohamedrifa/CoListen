@@ -21,6 +21,7 @@ class JoinCodeSheet extends ConsumerStatefulWidget {
 
 class _JoinCodeSheetState extends ConsumerState<JoinCodeSheet> {
   final _codeController = TextEditingController();
+  final _focusNode = FocusNode();
   String _errorMessage = '';
 
   @override
@@ -29,10 +30,20 @@ class _JoinCodeSheetState extends ConsumerState<JoinCodeSheet> {
     if (widget.initialCode != null) {
       _codeController.text = widget.initialCode!.trim().toUpperCase();
     }
+    _focusNode.addListener(() {
+      if (mounted) setState(() {});
+    });
+    // Request focus once the sheet is mounted and visible
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _focusNode.requestFocus();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _focusNode.dispose();
     _codeController.dispose();
     super.dispose();
   }
@@ -41,14 +52,19 @@ class _JoinCodeSheetState extends ConsumerState<JoinCodeSheet> {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final text = data?.text?.trim().toUpperCase() ?? '';
     if (text.isNotEmpty) {
-      // Clean only valid characters
-      final validChars = AppConstants.roomCodeCharset;
-      final filtered = text.split('').where((c) => validChars.contains(c)).join();
-      if (filtered.length >= AppConstants.roomCodeLength) {
+      // Clean only alphanumeric characters
+      final filtered = text.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+      if (filtered.isNotEmpty) {
+        final codeToSet = filtered.length >= AppConstants.roomCodeLength
+            ? filtered.substring(0, AppConstants.roomCodeLength)
+            : filtered;
         setState(() {
-          _codeController.text = filtered.substring(0, AppConstants.roomCodeLength);
+          _codeController.text = codeToSet;
           _errorMessage = '';
         });
+        if (codeToSet.length == AppConstants.roomCodeLength) {
+          _handleJoin();
+        }
       }
     }
   }
@@ -119,65 +135,105 @@ class _JoinCodeSheetState extends ConsumerState<JoinCodeSheet> {
             ),
             const SizedBox(height: AppDimens.lg),
 
-            // 6-Character Box Display
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(AppConstants.roomCodeLength, (index) {
-                final char = index < currentCode.length ? currentCode[index] : '';
-                final isCurrent = index == currentCode.length;
+            // 6-Character Interactive Box Display with Overlay TextField
+            GestureDetector(
+              onTap: () => _focusNode.requestFocus(),
+              behavior: HitTestBehavior.opaque,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Visual 6-box representation
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(AppConstants.roomCodeLength, (index) {
+                      final char = index < currentCode.length ? currentCode[index] : '';
+                      final isFocused = _focusNode.hasFocus;
+                      final isCurrent = isFocused && index == currentCode.length;
 
-                return Container(
-                  width: 44,
-                  height: 54,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceHighlight,
-                    borderRadius: BorderRadius.circular(AppDimens.radiusSm),
-                    border: Border.all(
-                      color: isCurrent
-                          ? AppColors.primary
-                          : char.isNotEmpty
-                              ? AppColors.secondary
-                              : AppColors.glassBorder,
-                      width: isCurrent ? 2 : 1,
-                    ),
+                      return Container(
+                        width: 44,
+                        height: 56,
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceHighlight,
+                          borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+                          border: Border.all(
+                            color: isCurrent
+                                ? AppColors.primary
+                                : char.isNotEmpty
+                                    ? AppColors.secondary
+                                    : AppColors.glassBorder,
+                            width: isCurrent ? 2 : 1.5,
+                          ),
+                          boxShadow: isCurrent
+                              ? [
+                                  BoxShadow(
+                                    color: AppColors.primary.withValues(alpha: 0.35),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Center(
+                          child: Text(
+                            char,
+                            style: AppTypography.titleLarge.copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 22,
+                              color: char.isNotEmpty
+                                  ? AppColors.textPrimary
+                                  : AppColors.textMuted,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
                   ),
-                  child: Center(
-                    child: Text(
-                      char,
-                      style: AppTypography.titleLarge.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: char.isNotEmpty
-                            ? AppColors.textPrimary
-                            : AppColors.textMuted,
+
+                  // Overlay TextField spanning across all boxes
+                  Positioned.fill(
+                    child: Opacity(
+                      opacity: 0.0,
+                      child: TextField(
+                        controller: _codeController,
+                        focusNode: _focusNode,
+                        autofocus: true,
+                        keyboardType: TextInputType.text,
+                        textCapitalization: TextCapitalization.characters,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        textInputAction: TextInputAction.go,
+                        maxLength: AppConstants.roomCodeLength,
+                        inputFormatters: [
+                          TextInputFormatter.withFunction((oldValue, newValue) {
+                            return TextEditingValue(
+                              text: newValue.text.toUpperCase(),
+                              selection: newValue.selection,
+                            );
+                          }),
+                          FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
+                          LengthLimitingTextInputFormatter(AppConstants.roomCodeLength),
+                        ],
+                        onChanged: (val) {
+                          setState(() => _errorMessage = '');
+                          if (val.length == AppConstants.roomCodeLength) {
+                            _handleJoin();
+                          }
+                        },
+                        onSubmitted: (_) => _handleJoin(),
+                        decoration: const InputDecoration(
+                          counterText: '',
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                        ),
                       ),
                     ),
                   ),
-                );
-              }),
-            ),
-            const SizedBox(height: AppDimens.md),
-
-            // Hidden text field capturing input
-            TextField(
-              controller: _codeController,
-              autofocus: true,
-              textCapitalization: TextCapitalization.characters,
-              maxLength: AppConstants.roomCodeLength,
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(
-                  RegExp('[$AppConstants.roomCodeCharset]'),
-                ),
-              ],
-              onChanged: (_) => setState(() => _errorMessage = ''),
-              style: const TextStyle(color: Colors.transparent, fontSize: 1),
-              cursorColor: Colors.transparent,
-              decoration: const InputDecoration(
-                counterText: '',
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
+                ],
               ),
             ),
+            const SizedBox(height: AppDimens.md),
 
             if (_errorMessage.isNotEmpty) ...[
               Center(

@@ -78,12 +78,16 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
     _statusSubscription = _player.statusStream.listen((status) async {
       if (_isDisposed) return;
       if (status == PlayerStatus.ended && _queueRepo != null) {
-        await _queueRepo.skipToNextSong(roomId);
+        try {
+          await _queueRepo.skipToNextSong(roomId, _currentUid);
+        } catch (_) {}
       } else if (status == PlayerStatus.error && _queueRepo != null) {
         // Auto-skip unplayable/restricted video after short grace period
         Future.delayed(const Duration(seconds: 2), () async {
           if (!_isDisposed && _player.currentStatus == PlayerStatus.error) {
-            await _queueRepo.skipToNextSong(roomId);
+            try {
+              await _queueRepo.skipToNextSong(roomId, _currentUid);
+            } catch (_) {}
           }
         });
       }

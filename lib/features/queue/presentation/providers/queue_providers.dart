@@ -115,6 +115,24 @@ class QueueController extends StateNotifier<AsyncValue<void>> {
     }
   }
 
+  Future<void> toggleUpvote({
+    required String roomId,
+    required String itemId,
+    required String uid,
+    required bool currentUpvoted,
+  }) async {
+    try {
+      await _repo.toggleUpvote(
+        roomId: roomId,
+        itemId: itemId,
+        uid: uid,
+        upvote: !currentUpvoted,
+      );
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
   Future<void> skipToNextSong(String roomId, [String? uid]) async {
     try {
       await _repo.skipToNextSong(roomId, uid);

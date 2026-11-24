@@ -19,7 +19,7 @@
 
     "presence": {
       "$roomId": {
-        ".read": "auth != null && root.child('rooms/' + $roomId + '/members/' + auth.uid).exists()",
+        ".read": "auth != null",
         "$uid": {
           ".write": "auth != null && auth.uid === $uid"
         }
@@ -37,29 +37,41 @@
 
     "rooms": {
       "$roomId": {
-        ".read": "auth != null && data.child('members/' + auth.uid).exists()",
+        ".read": "auth != null && (data.child('members/' + auth.uid).exists() || data.child('isActive').val() === true || !data.exists())",
 
-        ".write": "auth != null && (!data.exists() || data.child('adminId').val() === auth.uid)",
+        ".write": "auth != null && (!data.exists() || data.child('adminId').val() === auth.uid || root.child('rooms/' + $roomId + '/members/' + auth.uid).exists())",
 
         "members": {
           "$uid": {
-            ".write": "auth != null && (auth.uid === $uid || data.parent().parent().child('adminId').val() === auth.uid || newData.parent().parent().child('adminId').val() === auth.uid)"
+            ".write": "auth != null && (auth.uid === $uid || root.child('rooms/' + $roomId + '/adminId').val() === auth.uid || root.child('rooms/' + $roomId + '/members/' + auth.uid).exists())"
           }
         },
 
         "playback": {
-          ".write": "auth != null && (data.parent().child('adminId').val() === auth.uid || data.parent().child('members/' + auth.uid + '/isController').val() === true)"
+          ".write": "auth != null && (root.child('rooms/' + $roomId + '/adminId').val() === auth.uid || root.child('rooms/' + $roomId + '/members/' + auth.uid).exists())"
         },
 
         "queue": {
+          ".read": "auth != null",
+          ".write": "auth != null && (root.child('rooms/' + $roomId + '/adminId').val() === auth.uid || root.child('rooms/' + $roomId + '/members/' + auth.uid).exists())",
           "$itemId": {
-            ".write": "auth != null && (data.parent().parent().child('adminId').val() === auth.uid || data.parent().parent().child('members/' + auth.uid + '/isController').val() === true || (data.parent().parent().child('settings/membersCanAddSongs').val() === true && !data.exists()) || (data.child('addedBy').val() === auth.uid))"
+            ".write": "auth != null && (root.child('rooms/' + $roomId + '/adminId').val() === auth.uid || root.child('rooms/' + $roomId + '/members/' + auth.uid).exists() || data.child('addedBy').val() === auth.uid)",
+            "upvoteUids": {
+              "$uid": {
+                ".write": "auth != null && auth.uid === $uid"
+              }
+            },
+            "voteSkipUids": {
+              "$uid": {
+                ".write": "auth != null && auth.uid === $uid"
+              }
+            }
           }
         },
 
         "reactions": {
           "$reactionId": {
-            ".write": "auth != null && root.child('rooms/' + $roomId + '/members/' + auth.uid).exists()"
+            ".write": "auth != null"
           }
         }
       }

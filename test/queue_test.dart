@@ -79,6 +79,27 @@ class MockQueueRepository implements QueueRepository {
   }
 
   @override
+  Future<void> toggleUpvote({
+    required String roomId,
+    required String itemId,
+    required String uid,
+    required bool upvote,
+  }) async {
+    final index = _items.indexWhere((i) => i.id == itemId);
+    if (index != -1) {
+      final updatedUpvotes = Map<String, bool>.from(_items[index].upvoteUids);
+      if (upvote) {
+        updatedUpvotes[uid] = true;
+      } else {
+        updatedUpvotes.remove(uid);
+      }
+      _items[index] = _items[index].copyWith(upvoteUids: updatedUpvotes);
+      _items.sort((a, b) => a.compareTo(b));
+      _controller.add(List.from(_items));
+    }
+  }
+
+  @override
   Future<void> skipToNextSong(String roomId, [String? currentUid]) async {
     if (_items.isNotEmpty) {
       _items.removeAt(0);
@@ -302,6 +323,48 @@ void main() {
       );
 
       expect(mockRepo._items.first.hasUserVoted('user_voter'), isFalse);
+    });
+
+    test('Voting basis queue ordering sorts higher upvoted songs to the top', () async {
+      final songA = QueueItemEntity(
+        id: 'song_a',
+        trackId: 'ta',
+        title: 'Song A',
+        artist: 'Artist A',
+        thumbnailUrl: '',
+        durationMs: 180000,
+        addedBy: 'u1',
+        addedByName: 'Alex',
+        addedAt: DateTime.now(),
+        order: 1.0,
+      );
+      final songB = QueueItemEntity(
+        id: 'song_b',
+        trackId: 'tb',
+        title: 'Song B',
+        artist: 'Artist B',
+        thumbnailUrl: '',
+        durationMs: 180000,
+        addedBy: 'u2',
+        addedByName: 'Sam',
+        addedAt: DateTime.now(),
+        order: 2.0,
+      );
+
+      mockRepo.emitQueue([songA, songB]);
+
+      // Upvote Song B
+      await controller.toggleUpvote(
+        roomId: 'room_1',
+        itemId: 'song_b',
+        uid: 'voter_1',
+        currentUpvoted: false,
+      );
+
+      // Song B should now be sorted to position 0 (top of queue) because it has 1 upvote vs 0
+      expect(mockRepo._items.first.id, equals('song_b'));
+      expect(mockRepo._items.first.upvoteCount, equals(1));
+      expect(mockRepo._items[1].id, equals('song_a'));
     });
   });
 }

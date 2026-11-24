@@ -337,6 +337,34 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
                               ],
                             ),
                           ),
+                          if (playback.updatedBy == 'youtube_autoplay') ...[
+                            const SizedBox(width: AppDimens.xs),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppColors.secondary.withValues(alpha: 0.2),
+                                borderRadius:
+                                    BorderRadius.circular(AppDimens.radiusFull),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.auto_awesome,
+                                      size: 12, color: AppColors.secondary),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Autoplay',
+                                    style: AppTypography.labelSmall.copyWith(
+                                      color: AppColors.secondary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                       if (player.currentStatus == PlayerStatus.error) ...[

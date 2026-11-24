@@ -8,6 +8,7 @@ import '../../../../core/widgets/animated_eq_bars.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../playback/presentation/providers/playback_sync_provider.dart';
 import '../../../room/domain/entities/room_entity.dart';
+import '../../domain/entities/queue_item_entity.dart';
 import '../providers/queue_providers.dart';
 import 'add_song_bottom_sheet.dart';
 
@@ -196,15 +197,41 @@ class QueueBottomSheet extends ConsumerWidget {
           // Subheader: UP NEXT
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppDimens.lg),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'UP NEXT',
-                style: AppTypography.labelSmall.copyWith(
-                  color: AppColors.textMuted,
-                  letterSpacing: 1.2,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'UP NEXT',
+                  style: AppTypography.labelSmall.copyWith(
+                    color: AppColors.textMuted,
+                    letterSpacing: 1.2,
+                  ),
                 ),
-              ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.how_to_vote,
+                          size: 11, color: AppColors.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Voting Queue Active',
+                        style: AppTypography.labelSmall.copyWith(
+                          color: AppColors.primary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: AppDimens.xs),
@@ -327,6 +354,14 @@ class QueueBottomSheet extends ConsumerWidget {
                                 ),
                               ),
 
+                              // Upvote Button
+                              _UpvoteButton(
+                                item: item,
+                                currentUid: currentUser?.uid,
+                                roomId: room.id,
+                              ),
+                              const SizedBox(width: 4),
+
                               // Skip Vote Chip
                               if (item.voteSkipCount > 0)
                                 Container(
@@ -443,6 +478,14 @@ class QueueBottomSheet extends ConsumerWidget {
                             ),
                           ),
 
+                          // Upvote Button
+                          _UpvoteButton(
+                            item: item,
+                            currentUid: currentUser?.uid,
+                            roomId: room.id,
+                          ),
+                          const SizedBox(width: 4),
+
                           // Vote to Skip Button
                           if (room.settings.membersCanVoteSkip &&
                               currentUser != null)
@@ -507,6 +550,75 @@ class QueueBottomSheet extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _UpvoteButton extends ConsumerWidget {
+  final QueueItemEntity item;
+  final String? currentUid;
+  final String roomId;
+
+  const _UpvoteButton({
+    required this.item,
+    required this.currentUid,
+    required this.roomId,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasUpvoted = currentUid != null && item.hasUserUpvoted(currentUid!);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppDimens.radiusFull),
+        onTap: currentUid == null
+            ? null
+            : () {
+                ref.read(queueControllerProvider.notifier).toggleUpvote(
+                      roomId: roomId,
+                      itemId: item.id,
+                      uid: currentUid!,
+                      currentUpvoted: hasUpvoted,
+                    );
+              },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: hasUpvoted
+                ? AppColors.primary.withValues(alpha: 0.25)
+                : AppColors.surfaceHighlight.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(AppDimens.radiusFull),
+            border: Border.all(
+              color: hasUpvoted
+                  ? AppColors.primary
+                  : AppColors.textMuted.withValues(alpha: 0.25),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                hasUpvoted ? Icons.thumb_up_rounded : Icons.thumb_up_outlined,
+                size: 13,
+                color: hasUpvoted ? AppColors.primary : AppColors.textMuted,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '${item.upvoteCount}',
+                style: TextStyle(
+                  color: hasUpvoted ? AppColors.primary : AppColors.textPrimary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

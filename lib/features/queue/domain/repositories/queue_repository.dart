@@ -26,5 +26,12 @@ abstract class QueueRepository {
     required bool vote,
   });
 
+  Future<void> toggleUpvote({
+    required String roomId,
+    required String itemId,
+    required String uid,
+    required bool upvote,
+  });
+
   Future<void> skipToNextSong(String roomId, [String? currentUid]);
 }
