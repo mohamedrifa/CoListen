@@ -6,8 +6,13 @@ class EnvConfig {
   }
 
   static String get(String key, {String fallback = ''}) {
-    return dotenv.env[key] ??
-        String.fromEnvironment(key, defaultValue: fallback);
+    try {
+      if (dotenv.isInitialized) {
+        return dotenv.env[key] ??
+            String.fromEnvironment(key, defaultValue: fallback);
+      }
+    } catch (_) {}
+    return String.fromEnvironment(key, defaultValue: fallback);
   }
 
   // App Metadata
@@ -33,4 +38,8 @@ class EnvConfig {
 
   // External APIs
   static String get youtubeApiKey => get('YOUTUBE_DATA_API_KEY');
+
+  // Version Control
+  static String get firebaseVersionControlPath =>
+      get('FIREBASE_VERSION_CONTROL_PATH', fallback: 'COLISTEN_APP');
 }

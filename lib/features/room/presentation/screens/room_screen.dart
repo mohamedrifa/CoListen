@@ -43,6 +43,11 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
               uid: user.uid,
               displayName: user.displayName,
             );
+        ref.read(roomControllerProvider.notifier).recordRoomVisit(
+              uid: user.uid,
+              roomId: widget.roomId,
+              displayName: user.displayName,
+            );
       }
     });
   }

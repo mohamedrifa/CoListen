@@ -3,6 +3,11 @@
     ".read": false,
     ".write": false,
 
+    "COLISTEN_APP": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+
     "users": {
       "$uid": {
         ".read": "auth != null",
@@ -37,8 +42,7 @@
 
     "rooms": {
       "$roomId": {
-        ".read": "auth != null && (data.child('members/' + auth.uid).exists() || data.child('isActive').val() === true || !data.exists())",
-
+        ".read": "auth != null",
         ".write": "auth != null && (!data.exists() || data.child('adminId').val() === auth.uid || root.child('rooms/' + $roomId + '/members/' + auth.uid).exists())",
 
         "members": {

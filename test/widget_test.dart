@@ -19,6 +19,7 @@ import 'package:colisten/features/queue/presentation/widgets/add_song_bottom_she
 import 'package:colisten/features/reactions/presentation/providers/reactions_provider.dart';
 import 'package:colisten/features/room/data/services/presence_service.dart';
 import 'package:colisten/features/room/domain/entities/room_entity.dart';
+import 'package:colisten/features/room/domain/entities/room_history_entity.dart';
 import 'package:colisten/features/room/domain/repositories/room_repository.dart';
 import 'package:colisten/features/room/presentation/providers/room_providers.dart';
 import 'package:colisten/features/room/presentation/screens/room_screen.dart';
@@ -128,6 +129,34 @@ class MockRoomRepository implements RoomRepository {
   Future<void> leaveRoom({
     required String roomId,
     required String uid,
+  }) async {}
+
+  @override
+  Stream<List<RoomHistoryEntity>> watchUserRoomHistory(String uid) =>
+      Stream.value([
+        RoomHistoryEntity(
+          roomId: 'room_test_123',
+          code: 'K7P2QX',
+          name: 'Late Night Music Room',
+          adminId: uid,
+          adminName: 'Test User',
+          role: 'Host',
+          joinedAt: DateTime.now(),
+          lastVisitedAt: DateTime.now(),
+        ),
+      ]);
+
+  @override
+  Future<void> removeRoomFromHistory({
+    required String uid,
+    required String roomId,
+  }) async {}
+
+  @override
+  Future<void> recordRoomVisit({
+    required String uid,
+    required String roomId,
+    required String displayName,
   }) async {}
 }
 

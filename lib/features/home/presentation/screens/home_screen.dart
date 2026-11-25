@@ -8,6 +8,8 @@ import '../../../../core/widgets/animated_eq_bars.dart';
 import '../../../../core/widgets/pulse_avatar.dart';
 import 'package:colisten/features/auth/presentation/providers/auth_provider.dart';
 import 'package:colisten/features/invites/presentation/widgets/in_app_invite_banner.dart';
+import 'package:colisten/features/room/domain/entities/room_history_entity.dart';
+import 'package:colisten/features/room/presentation/providers/room_providers.dart';
 import 'package:colisten/features/room/presentation/widgets/create_room_sheet.dart';
 import 'package:colisten/features/room/presentation/widgets/join_code_sheet.dart';
 import 'package:go_router/go_router.dart';
@@ -168,41 +170,271 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
 
-              const SizedBox(height: AppDimens.xl),
-              Text('Active Rooms with Friends', style: AppTypography.titleMedium),
-              const SizedBox(height: AppDimens.md),
-
-              // Sample Active Room Card
-              GlassContainer(
-                child: Row(
-                  children: [
+              const SizedBox(height: AppDimens.lg),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Your Room History',
+                    style: AppTypography.titleMedium,
+                  ),
+                  if (user != null)
                     Container(
-                      width: 52,
-                      height: 52,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: AppColors.primaryDark,
-                        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                        color: AppColors.secondary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(AppDimens.radiusSm),
                       ),
-                      child: const Center(
-                        child: AnimatedEqBars(isPlaying: true, color: AppColors.secondary),
-                      ),
-                    ),
-                    const SizedBox(width: AppDimens.md),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('Late Night Lo-Fi', style: AppTypography.titleMedium),
-                          const SizedBox(height: 2),
-                          Text('Host: Alex • 4 listening', style: AppTypography.bodyMedium),
+                          const Icon(Icons.flash_on_rounded,
+                              size: 12, color: AppColors.secondary),
+                          const SizedBox(width: 4),
+                          Text(
+                            'One-Tap Re-entry',
+                            style: AppTypography.labelSmall.copyWith(
+                              color: AppColors.secondary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                    const Icon(Icons.chevron_right, color: AppColors.textSecondary),
-                  ],
-                ),
+                ],
+              ),
+              const SizedBox(height: AppDimens.sm),
+
+              // Room History List
+              Expanded(
+                child: user == null
+                    ? const Center(
+                        child: Text('Sign in to view your room history'),
+                      )
+                    : ref.watch(userRoomHistoryProvider(user.uid)).when(
+                          data: (history) {
+                            if (history.isEmpty) {
+                              return Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 60,
+                                      height: 60,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.surfaceHighlight
+                                            .withValues(alpha: 0.5),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.meeting_room_outlined,
+                                        size: 30,
+                                        color: AppColors.textMuted,
+                                      ),
+                                    ),
+                                    const SizedBox(height: AppDimens.sm),
+                                    Text(
+                                      'No Room History Yet',
+                                      style: AppTypography.titleMedium.copyWith(
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: AppDimens.lg),
+                                      child: Text(
+                                        'Create a room or enter a 6-digit code. Once you join, you can re-enter here anytime without typing the code again!',
+                                        style:
+                                            AppTypography.bodySmall.copyWith(
+                                          color: AppColors.textMuted,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+
+                            return ListView.separated(
+                              padding:
+                                  const EdgeInsets.only(bottom: AppDimens.lg),
+                              itemCount: history.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: AppDimens.xs),
+                              itemBuilder: (context, index) {
+                                return _RoomHistoryCard(
+                                  item: history[index],
+                                  uid: user.uid,
+                                );
+                              },
+                            );
+                          },
+                          loading: () => const Center(
+                            child: CircularProgressIndicator(
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          error: (err, _) => Center(
+                            child: Text(
+                              'Failed to load history: $err',
+                              style: const TextStyle(color: AppColors.error),
+                            ),
+                          ),
+                        ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RoomHistoryCard extends ConsumerWidget {
+  final RoomHistoryEntity item;
+  final String uid;
+
+  const _RoomHistoryCard({
+    required this.item,
+    required this.uid,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final liveRoomAsync = ref.watch(currentRoomProvider(item.roomId));
+    final liveRoom = liveRoomAsync.valueOrNull;
+    final isActive = liveRoom?.isActive ?? true;
+    final memberCount = liveRoom?.members.length ?? 1;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppDimens.xs),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+          onTap: () {
+            // One-tap direct re-entry: opens room immediately without prompting for code
+            context.push('/room/${item.roomId}');
+          },
+          child: GlassContainer(
+            padding: const EdgeInsets.all(AppDimens.sm),
+            child: Row(
+              children: [
+                // Equalizer or Inactive Icon
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? AppColors.primaryDark
+                        : AppColors.surfaceHighlight,
+                    borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+                  ),
+                  child: Center(
+                    child: isActive
+                        ? const AnimatedEqBars(
+                            isPlaying: true, color: AppColors.secondary)
+                        : const Icon(Icons.music_off_outlined,
+                            color: AppColors.textMuted, size: 20),
+                  ),
+                ),
+                const SizedBox(width: AppDimens.md),
+
+                // Details: Name, Host, Code
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              liveRoom?.name ?? item.name,
+                              style: AppTypography.titleMedium.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.15),
+                              borderRadius:
+                                  BorderRadius.circular(AppDimens.radiusSm),
+                              border: Border.all(
+                                color:
+                                    AppColors.primary.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Text(
+                              '#${item.code}',
+                              style: AppTypography.labelSmall.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Text(
+                            'Host: ${item.adminName}',
+                            style: AppTypography.bodySmall.copyWith(
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text('•',
+                              style: AppTypography.bodySmall
+                                  .copyWith(color: AppColors.textMuted)),
+                          const SizedBox(width: 8),
+                          Text(
+                            isActive ? '$memberCount listening' : 'Room Ended',
+                            style: AppTypography.bodySmall.copyWith(
+                              color: isActive
+                                  ? AppColors.secondary
+                                  : AppColors.textMuted,
+                              fontWeight: isActive
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Delete from history button
+                IconButton(
+                  icon: const Icon(Icons.close,
+                      size: 16, color: AppColors.textMuted),
+                  tooltip: 'Remove from history',
+                  onPressed: () {
+                    ref
+                        .read(roomControllerProvider.notifier)
+                        .removeRoomFromHistory(
+                          uid: uid,
+                          roomId: item.roomId,
+                        );
+                  },
+                ),
+                const Icon(Icons.chevron_right,
+                    size: 20, color: AppColors.textSecondary),
+              ],
+            ),
           ),
         ),
       ),

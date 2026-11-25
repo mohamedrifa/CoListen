@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/room_entity.dart';
+import '../../domain/entities/room_history_entity.dart';
 import '../../domain/repositories/room_repository.dart';
 import '../../data/repositories/room_repository_impl.dart';
 
@@ -11,6 +12,12 @@ final currentRoomProvider =
     StreamProvider.family<RoomEntity?, String>((ref, roomId) {
   final repo = ref.watch(roomRepositoryProvider);
   return repo.watchRoom(roomId);
+});
+
+final userRoomHistoryProvider =
+    StreamProvider.family<List<RoomHistoryEntity>, String>((ref, uid) {
+  final repo = ref.watch(roomRepositoryProvider);
+  return repo.watchUserRoomHistory(uid);
 });
 
 final roomControllerProvider =
@@ -95,6 +102,28 @@ class RoomController extends StateNotifier<AsyncValue<String?>> {
     await _repo.leaveRoom(
       roomId: roomId,
       uid: uid,
+    );
+  }
+
+  Future<void> removeRoomFromHistory({
+    required String uid,
+    required String roomId,
+  }) async {
+    await _repo.removeRoomFromHistory(
+      uid: uid,
+      roomId: roomId,
+    );
+  }
+
+  Future<void> recordRoomVisit({
+    required String uid,
+    required String roomId,
+    required String displayName,
+  }) async {
+    await _repo.recordRoomVisit(
+      uid: uid,
+      roomId: roomId,
+      displayName: displayName,
     );
   }
 }

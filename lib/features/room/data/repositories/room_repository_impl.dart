@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:firebase_database/firebase_database.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../domain/entities/room_entity.dart';
+import '../../domain/entities/room_history_entity.dart';
 import '../../domain/repositories/room_repository.dart';
 
 class RoomRepositoryImpl implements RoomRepository {
@@ -49,6 +50,16 @@ class RoomRepositoryImpl implements RoomRepository {
 
     final updates = <String, dynamic>{
       'roomCodes/$code': roomId,
+      'users/$adminId/roomHistory/$roomId': {
+        'roomId': roomId,
+        'code': code,
+        'name': name.trim().isEmpty ? 'Late Night Music Room' : name.trim(),
+        'adminId': adminId,
+        'adminName': adminName,
+        'role': 'Host',
+        'joinedAt': ServerValue.timestamp,
+        'lastVisitedAt': ServerValue.timestamp,
+      },
       'rooms/$roomId': {
         'code': code,
         'name': name.trim().isEmpty ? 'Late Night Music Room' : name.trim(),
@@ -112,27 +123,112 @@ class RoomRepositoryImpl implements RoomRepository {
       throw Exception('Room code "$cleanCode" was not found.');
     }
 
-    // Add user as listener member first (ensures member read permission on rooms/$roomId)
-    await _database.ref('rooms/$roomId/members/$uid').update({
+    final roomSnap = await _database.ref('rooms/$roomId').get();
+    if (!roomSnap.exists) {
+      throw Exception('This room is no longer available.');
+    }
+
+    final roomData = (roomSnap.value as Map?) ?? {};
+    final isActive = roomData['isActive'] as bool? ?? false;
+    if (!isActive) {
+      throw Exception('This room has ended.');
+    }
+
+    // Add user as listener member
+    await _database.ref('rooms/$roomId/members/$uid').set({
       'displayName': displayName,
       'isController': false,
       'joinedAt': ServerValue.timestamp,
     });
 
-    final roomSnap = await _database.ref('rooms/$roomId').get();
-    if (!roomSnap.exists) {
-      await _database.ref('rooms/$roomId/members/$uid').remove();
-      throw Exception('This room is no longer available.');
-    }
+    final roomName = roomData['name'] as String? ?? 'Music Room';
+    final roomAdminId = roomData['adminId'] as String? ?? '';
+    final adminMember = (roomData['members'] as Map?)?[roomAdminId] as Map?;
+    final roomAdminName = adminMember?['displayName'] as String? ?? 'Host';
 
-    final roomData = roomSnap.value as Map<dynamic, dynamic>;
-    final isActive = roomData['isActive'] as bool? ?? false;
-    if (!isActive) {
-      await _database.ref('rooms/$roomId/members/$uid').remove();
-      throw Exception('This room has ended.');
-    }
+    // Record in user room history
+    try {
+      await _database.ref('users/$uid/roomHistory/$roomId').set({
+        'roomId': roomId,
+        'code': cleanCode,
+        'name': roomName,
+        'adminId': roomAdminId,
+        'adminName': roomAdminName,
+        'role': 'Listener',
+        'joinedAt': ServerValue.timestamp,
+        'lastVisitedAt': ServerValue.timestamp,
+      });
+    } catch (_) {}
 
     return roomId;
+  }
+
+  @override
+  Stream<List<RoomHistoryEntity>> watchUserRoomHistory(String uid) {
+    return _database.ref('users/$uid/roomHistory').onValue.map((event) {
+      final val = event.snapshot.value;
+      if (val == null) return [];
+
+      final list = <RoomHistoryEntity>[];
+      if (val is Map) {
+        val.forEach((key, map) {
+          if (map is Map) {
+            list.add(RoomHistoryEntity.fromMap(key.toString(), map));
+          }
+        });
+      }
+
+      list.sort((a, b) => b.lastVisitedAt.compareTo(a.lastVisitedAt));
+      return list;
+    });
+  }
+
+  @override
+  Future<void> removeRoomFromHistory({
+    required String uid,
+    required String roomId,
+  }) async {
+    try {
+      await _database.ref('users/$uid/roomHistory/$roomId').remove();
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> recordRoomVisit({
+    required String uid,
+    required String roomId,
+    required String displayName,
+  }) async {
+    try {
+      final roomSnap = await _database.ref('rooms/$roomId').get();
+      if (!roomSnap.exists || roomSnap.value is! Map) return;
+
+      final roomData = roomSnap.value as Map<dynamic, dynamic>;
+      final roomName = roomData['name'] as String? ?? 'Music Room';
+      final roomCode = roomData['code'] as String? ?? '';
+      final roomAdminId = roomData['adminId'] as String? ?? '';
+      final adminMember = (roomData['members'] as Map?)?[roomAdminId] as Map?;
+      final roomAdminName = adminMember?['displayName'] as String? ?? 'Host';
+      final isHost = roomAdminId == uid;
+
+      // Ensure user is recorded in room members
+      await _database.ref('rooms/$roomId/members/$uid').update({
+        'displayName': displayName,
+        'isController': isHost,
+        'joinedAt': ServerValue.timestamp,
+      });
+
+      // Update user room history
+      await _database.ref('users/$uid/roomHistory/$roomId').update({
+        'roomId': roomId,
+        'code': roomCode,
+        'name': roomName,
+        'adminId': roomAdminId,
+        'adminName': roomAdminName,
+        'role': isHost ? 'Host' : 'Listener',
+        'lastVisitedAt': ServerValue.timestamp,
+      });
+    } catch (_) {}
   }
 
   @override

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
 import 'core/routing/app_router.dart';
 import 'core/constants/app_constants.dart';
+import 'core/version_control/widgets/version_control_gate.dart';
 
 class CoListenApp extends ConsumerWidget {
   const CoListenApp({super.key});
@@ -16,6 +17,12 @@ class CoListenApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       routerConfig: router,
+      builder: (context, child) => Stack(
+        children: [
+          child ?? const SizedBox.shrink(),
+          const VersionControlGate(),
+        ],
+      ),
     );
   }
 }

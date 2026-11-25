@@ -1,4 +1,5 @@
 import '../entities/room_entity.dart';
+import '../entities/room_history_entity.dart';
 
 abstract class RoomRepository {
   Future<RoomEntity> createRoom({
@@ -15,6 +16,19 @@ abstract class RoomRepository {
   });
 
   Stream<RoomEntity?> watchRoom(String roomId);
+
+  Stream<List<RoomHistoryEntity>> watchUserRoomHistory(String uid);
+
+  Future<void> removeRoomFromHistory({
+    required String uid,
+    required String roomId,
+  });
+
+  Future<void> recordRoomVisit({
+    required String uid,
+    required String roomId,
+    required String displayName,
+  });
 
   Future<void> toggleControllerRole({
     required String roomId,
