@@ -182,9 +182,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('CoListen'), findsOneWidget);
-    expect(find.text('Hear what your friends hear.'), findsOneWidget);
-    expect(find.text('Quick Guest Mode'), findsOneWidget);
+    expect(find.text('Listen together. In sync.'), findsOneWidget);
+    expect(find.text('Real-time music rooms with zero drift.'), findsOneWidget);
+    expect(find.text('Continue as Guest'), findsOneWidget);
   });
 
   testWidgets('CoListenApp authenticated shows HomeScreen and opens Create Room sheet',

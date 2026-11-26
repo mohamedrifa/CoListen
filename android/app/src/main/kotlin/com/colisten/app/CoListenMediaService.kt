@@ -32,6 +32,8 @@ class CoListenMediaService : Service() {
     private var currentPositionMs = 0L
     private var currentDurationMs = 0L
     private var currentSpeed = 1.0f
+    private var currentThumbnailUrl: String? = null
+    private var currentArtworkBitmap: android.graphics.Bitmap? = null
 
     companion object {
         const val CHANNEL_ID = "colisten_playback_channel"
@@ -52,6 +54,7 @@ class CoListenMediaService : Service() {
         const val EXTRA_POSITION_MS = "EXTRA_POSITION_MS"
         const val EXTRA_DURATION_MS = "EXTRA_DURATION_MS"
         const val EXTRA_SPEED = "EXTRA_SPEED"
+        const val EXTRA_THUMBNAIL_URL = "EXTRA_THUMBNAIL_URL"
 
         var mediaActionListener: ((action: String) -> Unit)? = null
 
@@ -62,7 +65,8 @@ class CoListenMediaService : Service() {
             isPlaying: Boolean,
             positionMs: Long = 0L,
             durationMs: Long = 0L,
-            speed: Float = 1.0f
+            speed: Float = 1.0f,
+            thumbnailUrl: String? = null
         ) {
             val intent = Intent(context, CoListenMediaService::class.java).apply {
                 action = ACTION_START
@@ -72,6 +76,7 @@ class CoListenMediaService : Service() {
                 putExtra(EXTRA_POSITION_MS, positionMs)
                 putExtra(EXTRA_DURATION_MS, durationMs)
                 putExtra(EXTRA_SPEED, speed)
+                putExtra(EXTRA_THUMBNAIL_URL, thumbnailUrl)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -87,7 +92,8 @@ class CoListenMediaService : Service() {
             isPlaying: Boolean,
             positionMs: Long = 0L,
             durationMs: Long = 0L,
-            speed: Float = 1.0f
+            speed: Float = 1.0f,
+            thumbnailUrl: String? = null
         ) {
             val intent = Intent(context, CoListenMediaService::class.java).apply {
                 action = ACTION_UPDATE
@@ -97,6 +103,7 @@ class CoListenMediaService : Service() {
                 putExtra(EXTRA_POSITION_MS, positionMs)
                 putExtra(EXTRA_DURATION_MS, durationMs)
                 putExtra(EXTRA_SPEED, speed)
+                putExtra(EXTRA_THUMBNAIL_URL, thumbnailUrl)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -198,9 +205,22 @@ class CoListenMediaService : Service() {
                 currentTitle = intent.getStringExtra(EXTRA_TITLE) ?: currentTitle
                 currentArtist = intent.getStringExtra(EXTRA_ARTIST) ?: currentArtist
                 isPlayingState = intent.getBooleanExtra(EXTRA_IS_PLAYING, isPlayingState)
-                currentPositionMs = intent.getLongExtra(EXTRA_POSITION_MS, currentPositionMs)
-                currentDurationMs = intent.getLongExtra(EXTRA_DURATION_MS, currentDurationMs)
+                
+                val pos = intent.getLongExtra(EXTRA_POSITION_MS, -1L)
+                if (pos >= 0L) {
+                    currentPositionMs = pos
+                }
+                val dur = intent.getLongExtra(EXTRA_DURATION_MS, 0L)
+                if (dur > 0L) {
+                    currentDurationMs = dur
+                }
                 currentSpeed = intent.getFloatExtra(EXTRA_SPEED, currentSpeed)
+
+                val thumb = intent.getStringExtra(EXTRA_THUMBNAIL_URL)
+                if (!thumb.isNullOrEmpty() && thumb != currentThumbnailUrl) {
+                    currentThumbnailUrl = thumb
+                    loadArtworkBitmap(thumb)
+                }
 
                 updateMediaSessionState()
 
@@ -268,10 +288,37 @@ class CoListenMediaService : Service() {
             .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, "CoListen Room")
             .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, currentTitle)
             .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, currentArtist)
-            .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, currentDurationMs)
+            .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, currentDurationMs).apply {
+                currentArtworkBitmap?.let { bmp ->
+                    putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, bmp)
+                    putBitmap(MediaMetadataCompat.METADATA_KEY_ART, bmp)
+                }
+            }
             .build()
 
         mediaSession?.setMetadata(metadata)
+    }
+
+    private fun loadArtworkBitmap(urlStr: String) {
+        Thread {
+            try {
+                val url = java.net.URL(urlStr)
+                val connection = url.openConnection() as java.net.HttpURLConnection
+                connection.doInput = true
+                connection.connectTimeout = 4000
+                connection.readTimeout = 4000
+                connection.connect()
+                val input = connection.inputStream
+                val bitmap = android.graphics.BitmapFactory.decodeStream(input)
+                if (bitmap != null) {
+                    currentArtworkBitmap = bitmap
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        updateMediaSessionState()
+                        postNotification()
+                    }
+                }
+            } catch (_: Exception) {}
+        }.start()
     }
 
     private fun buildNotification(title: String, artist: String, isPlaying: Boolean): Notification {
@@ -366,7 +413,7 @@ class CoListenMediaService : Service() {
             style.setMediaSession(token)
         }
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(artist)
             .setSubText("CoListen")
@@ -381,7 +428,12 @@ class CoListenMediaService : Service() {
             .setOnlyAlertOnce(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+
+        currentArtworkBitmap?.let { bmp ->
+            builder.setLargeIcon(bmp)
+        }
+
+        return builder.build()
     }
 
     private fun createNotificationChannel() {

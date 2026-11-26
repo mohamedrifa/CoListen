@@ -20,6 +20,7 @@ class BackgroundMediaService {
   bool _currentPlaying = false;
   int _currentPositionMs = 0;
   int _currentDurationMs = 0;
+  String _currentThumbnailUrl = '';
 
   VoidCallback? onPlayRequested;
   VoidCallback? onPauseRequested;
@@ -88,13 +89,17 @@ class BackgroundMediaService {
     int positionMs = 0,
     int durationMs = 0,
     double speed = 1.0,
+    String? thumbnailUrl,
   }) async {
     if (kIsWeb) return;
     _currentTitle = title.isEmpty ? 'CoListen Track' : title;
     _currentArtist = artist.isEmpty ? 'Synchronized Music Room' : artist;
     _currentPlaying = isPlaying;
     _currentPositionMs = positionMs;
-    _currentDurationMs = durationMs;
+    _currentDurationMs = durationMs > 0 ? durationMs : _currentDurationMs;
+    if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
+      _currentThumbnailUrl = thumbnailUrl;
+    }
 
     try {
       await _channel.invokeMethod('startForegroundPlayback', {
@@ -104,6 +109,7 @@ class BackgroundMediaService {
         'positionMs': _currentPositionMs,
         'durationMs': _currentDurationMs,
         'speed': speed,
+        'thumbnailUrl': _currentThumbnailUrl,
       });
       _isServiceActive = true;
     } on MissingPluginException {
@@ -119,6 +125,7 @@ class BackgroundMediaService {
     int positionMs = 0,
     int durationMs = 0,
     double speed = 1.0,
+    String? thumbnailUrl,
   }) async {
     if (kIsWeb || !_isServiceActive) {
       if (isPlaying) {
@@ -129,6 +136,7 @@ class BackgroundMediaService {
           positionMs: positionMs,
           durationMs: durationMs,
           speed: speed,
+          thumbnailUrl: thumbnailUrl,
         );
       }
       return;
@@ -137,8 +145,11 @@ class BackgroundMediaService {
     _currentTitle = title.isEmpty ? _currentTitle : title;
     _currentArtist = artist.isEmpty ? _currentArtist : artist;
     _currentPlaying = isPlaying;
-    _currentPositionMs = positionMs > 0 ? positionMs : _currentPositionMs;
-    _currentDurationMs = durationMs > 0 ? durationMs : _currentDurationMs;
+    if (positionMs >= 0) _currentPositionMs = positionMs;
+    if (durationMs > 0) _currentDurationMs = durationMs;
+    if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
+      _currentThumbnailUrl = thumbnailUrl;
+    }
 
     try {
       await _channel.invokeMethod('updatePlaybackState', {
@@ -148,6 +159,7 @@ class BackgroundMediaService {
         'positionMs': _currentPositionMs,
         'durationMs': _currentDurationMs,
         'speed': speed,
+        'thumbnailUrl': _currentThumbnailUrl,
       });
     } catch (_) {}
   }

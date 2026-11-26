@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/glass_container.dart';
 import 'package:colisten/features/auth/presentation/providers/auth_provider.dart';
 import '../providers/invites_provider.dart';
 
@@ -25,20 +24,39 @@ class InAppInviteBanner extends ConsumerWidget {
 
         return Padding(
           padding: const EdgeInsets.only(bottom: AppDimens.md),
-          child: GlassContainer(
-            borderColor: AppColors.primaryLight.withValues(alpha: 0.5),
-            fillColor: AppColors.primaryDark.withValues(alpha: 0.4),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.surfaceCard,
+              borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+              border: Border.all(
+                color: AppColors.glassBorder,
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
             padding: const EdgeInsets.all(AppDimens.md),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(AppDimens.sm),
-                  decoration: const BoxDecoration(
-                    color: AppColors.primary,
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.mail_outline,
-                      size: 20, color: Colors.white),
+                  child: const Center(
+                    child: Icon(
+                      Icons.mail_outline,
+                      size: 20,
+                      color: AppColors.secondary,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: AppDimens.md),
                 Expanded(
@@ -68,23 +86,41 @@ class InAppInviteBanner extends ConsumerWidget {
                       const SizedBox(height: AppDimens.sm),
                       Row(
                         children: [
-                          ElevatedButton(
-                            onPressed: () {
-                              if (user != null) {
-                                ref
-                                    .read(inviteRepositoryProvider)
-                                    .acceptInvite(user.uid, invite.id);
-                              }
-                              onJoin?.call(invite.roomId, invite.roomCode);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 8),
-                              minimumSize: Size.zero,
+                          Container(
+                            height: 32,
+                            decoration: BoxDecoration(
+                              gradient: AppColors.primaryGradient,
+                              borderRadius:
+                                  BorderRadius.circular(AppDimens.radiusFull),
                             ),
-                            child: const Text('Accept & Join',
-                                style: TextStyle(fontSize: 12)),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius:
+                                    BorderRadius.circular(AppDimens.radiusFull),
+                                onTap: () {
+                                  if (user != null) {
+                                    ref
+                                        .read(inviteRepositoryProvider)
+                                        .acceptInvite(user.uid, invite.id);
+                                  }
+                                  onJoin?.call(invite.roomId, invite.roomCode);
+                                },
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 16),
+                                  child: Center(
+                                    child: Text(
+                                      'Join',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                           const SizedBox(width: AppDimens.sm),
                           TextButton(
@@ -101,7 +137,7 @@ class InAppInviteBanner extends ConsumerWidget {
                                   horizontal: 10, vertical: 8),
                               minimumSize: Size.zero,
                             ),
-                            child: const Text('Dismiss',
+                            child: const Text('Decline',
                                 style: TextStyle(fontSize: 12)),
                           ),
                         ],

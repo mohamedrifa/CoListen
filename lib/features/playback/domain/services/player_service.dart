@@ -41,6 +41,7 @@ abstract class PlayerService {
   Stream<PlayerStatus> get statusStream;
   Stream<Duration> get positionStream;
   Duration get currentPosition;
+  Duration get totalDuration;
   String? get currentTrackId;
   PlayerStatus get currentStatus;
   bool get isBackgroundPlaySupported;

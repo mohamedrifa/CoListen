@@ -29,6 +29,9 @@ class YoutubeAudioPlayerService implements PlayerService {
   Duration get currentPosition => _currentPosition;
 
   @override
+  Duration get totalDuration => _audioPlayer.duration ?? Duration.zero;
+
+  @override
   PlayerStatus get currentStatus => _currentStatus;
 
   @override

@@ -2,11 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:colisten/core/theme/app_colors.dart';
-import 'package:colisten/core/theme/app_dimens.dart';
-import 'package:colisten/features/auth/domain/entities/user_entity.dart';
-import 'package:colisten/features/auth/presentation/providers/auth_provider.dart';
-import 'package:colisten/features/reactions/presentation/providers/reactions_provider.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_dimens.dart';
+import '../../../auth/domain/entities/user_entity.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import '../providers/reactions_provider.dart';
 
 class EmojiBar extends ConsumerStatefulWidget {
   final String roomId;
@@ -53,9 +53,16 @@ class _EmojiBarState extends ConsumerState<EmojiBar> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppDimens.sm, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.surfaceHighlight.withValues(alpha: 0.8),
+        color: AppColors.surfaceCard.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(AppDimens.radiusFull),
         border: Border.all(color: AppColors.glassBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.45),
+            blurRadius: 18,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -67,7 +74,7 @@ class _EmojiBarState extends ConsumerState<EmojiBar> {
             behavior: HitTestBehavior.opaque,
             child: AnimatedScale(
               scale: isTapped ? 1.4 : 1.0,
-              duration: const Duration(milliseconds: 150),
+              duration: const Duration(milliseconds: 160),
               curve: Curves.easeOutBack,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),

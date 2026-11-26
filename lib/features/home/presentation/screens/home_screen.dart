@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/glass_container.dart';
 import '../../../../core/widgets/animated_eq_bars.dart';
+import '../../../../core/widgets/colisten_logo.dart';
 import '../../../../core/widgets/pulse_avatar.dart';
 import 'package:colisten/features/auth/presentation/providers/auth_provider.dart';
 import 'package:colisten/features/invites/presentation/widgets/in_app_invite_banner.dart';
@@ -46,19 +46,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.graphic_eq, color: AppColors.secondary, size: 24),
+            const CoListenLogo(size: 26, showGlow: false, animate: true),
             const SizedBox(width: AppDimens.sm),
             Text('CoListen', style: AppTypography.titleLarge),
           ],
         ),
         actions: [
-          if (user != null) ...[
+          if (user != null)
             Padding(
-              padding: const EdgeInsets.only(right: AppDimens.sm),
+              padding: const EdgeInsets.only(right: AppDimens.md),
               child: PopupMenuButton<String>(
+                color: AppColors.surfaceCard,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                  side: const BorderSide(color: AppColors.glassBorder),
+                ),
                 onSelected: (val) {
                   if (val == 'sign_out') {
                     ref.read(authControllerProvider.notifier).signOut();
@@ -67,21 +74,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 itemBuilder: (ctx) => [
                   PopupMenuItem(
                     value: 'profile',
-                    child: Row(
+                    enabled: false,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.person, color: AppColors.primaryLight),
-                        const SizedBox(width: AppDimens.sm),
-                        Text(user.displayName),
+                        Text(
+                          user.displayName,
+                          style: AppTypography.titleSmall.copyWith(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          user.isAnonymous ? 'Guest DJ' : 'Synced Listener',
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.textMuted,
+                          ),
+                        ),
                       ],
                     ),
                   ),
+                  const PopupMenuDivider(height: 1),
                   const PopupMenuItem(
                     value: 'sign_out',
                     child: Row(
                       children: [
-                        Icon(Icons.logout, color: AppColors.error),
+                        Icon(Icons.logout, color: AppColors.error, size: 18),
                         SizedBox(width: AppDimens.sm),
-                        Text('Sign Out'),
+                        Text(
+                          'Sign Out',
+                          style: TextStyle(
+                            color: AppColors.error,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -96,16 +123,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
             ),
-          ],
         ],
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppDimens.md),
+          padding: const EdgeInsets.symmetric(horizontal: AppDimens.lg),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: AppDimens.sm),
+              const SizedBox(height: AppDimens.xs),
 
               // In-App Invite Banner (Shows if there are pending invites)
               InAppInviteBanner(
@@ -119,50 +145,108 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: AppDimens.xs),
               Text(
                 'Listen together in real time. Low latency. Zero drift.',
-                style: AppTypography.bodyMedium,
+                style: AppTypography.bodyMedium.copyWith(
+                  color: AppColors.textMuted,
+                ),
               ),
               const SizedBox(height: AppDimens.lg),
 
-              // Action Buttons Row
+              // Side-by-Side Action Duo
               Row(
                 children: [
+                  // Hero CTA: Create Room (Gradient Pill)
                   Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        showModalBottomSheet(
-                          context: context,
-                          backgroundColor: Colors.transparent,
-                          isScrollControlled: true,
-                          builder: (_) => const CreateRoomSheet(),
-                        );
-                      },
-                      icon: const Icon(Icons.add_circle_outline),
-                      label: const Text('Create Room'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Container(
+                      height: 52,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        borderRadius:
+                            BorderRadius.circular(AppDimens.radiusFull),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.28),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius:
+                              BorderRadius.circular(AppDimens.radiusFull),
+                          onTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              backgroundColor: Colors.transparent,
+                              isScrollControlled: true,
+                              builder: (_) => const CreateRoomSheet(),
+                            );
+                          },
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_circle_outline,
+                                  color: Colors.white, size: 20),
+                              SizedBox(width: AppDimens.sm),
+                              Text(
+                                'Create Room',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(width: AppDimens.md),
+
+                  // Secondary CTA: Enter Code (Frosted Glass Pill)
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        showModalBottomSheet(
-                          context: context,
-                          backgroundColor: Colors.transparent,
-                          isScrollControlled: true,
-                          builder: (_) => const JoinCodeSheet(),
-                        );
-                      },
-                      icon: const Icon(Icons.tag),
-                      label: const Text('Enter Code'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.textPrimary,
-                        side: const BorderSide(color: AppColors.glassBorder),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                    child: Container(
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceLight.withValues(alpha: 0.5),
+                        borderRadius:
+                            BorderRadius.circular(AppDimens.radiusFull),
+                        border: Border.all(
+                          color: AppColors.glassBorder,
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius:
+                              BorderRadius.circular(AppDimens.radiusFull),
+                          onTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              backgroundColor: Colors.transparent,
+                              isScrollControlled: true,
+                              builder: (_) => const JoinCodeSheet(),
+                            );
+                          },
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.tag,
+                                  color: AppColors.textPrimary, size: 20),
+                              SizedBox(width: AppDimens.sm),
+                              Text(
+                                'Enter Code',
+                                style: TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -170,21 +254,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
 
-              const SizedBox(height: AppDimens.lg),
+              const SizedBox(height: AppDimens.xl),
+
+              // Recent Rooms Section Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Your Room History',
+                    'Recent Rooms',
                     style: AppTypography.titleMedium,
                   ),
                   if (user != null)
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.secondary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+                        color: AppColors.surfaceLight,
+                        borderRadius:
+                            BorderRadius.circular(AppDimens.radiusFull),
+                        border: Border.all(color: AppColors.glassBorder),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -221,32 +309,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Container(
-                                      width: 60,
-                                      height: 60,
+                                      width: 68,
+                                      height: 68,
                                       decoration: BoxDecoration(
-                                        color: AppColors.surfaceHighlight
-                                            .withValues(alpha: 0.5),
+                                        color: AppColors.surfaceLight,
                                         shape: BoxShape.circle,
+                                        border: Border.all(
+                                            color: AppColors.glassBorder),
                                       ),
                                       child: const Icon(
-                                        Icons.meeting_room_outlined,
-                                        size: 30,
+                                        Icons.music_note_outlined,
+                                        size: 32,
                                         color: AppColors.textMuted,
                                       ),
                                     ),
-                                    const SizedBox(height: AppDimens.sm),
+                                    const SizedBox(height: AppDimens.md),
                                     Text(
-                                      'No Room History Yet',
+                                      'No Recent Rooms',
                                       style: AppTypography.titleMedium.copyWith(
                                         color: AppColors.textPrimary,
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
+                                    const SizedBox(height: 6),
                                     Padding(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: AppDimens.lg),
+                                          horizontal: AppDimens.xl),
                                       child: Text(
-                                        'Create a room or enter a 6-digit code. Once you join, you can re-enter here anytime without typing the code again!',
+                                        'Create a music room or enter a 6-digit code. Rooms you join will show up here for one-tap re-entry.',
                                         style:
                                             AppTypography.bodySmall.copyWith(
                                           color: AppColors.textMuted,
@@ -312,131 +401,190 @@ class _RoomHistoryCard extends ConsumerWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppDimens.xs),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-          onTap: () {
-            // One-tap direct re-entry: opens room immediately without prompting for code
-            context.push('/room/${item.roomId}');
-          },
-          child: GlassContainer(
-            padding: const EdgeInsets.all(AppDimens.sm),
-            child: Row(
-              children: [
-                // Equalizer or Inactive Icon
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: isActive
-                        ? AppColors.primaryDark
-                        : AppColors.surfaceHighlight,
-                    borderRadius: BorderRadius.circular(AppDimens.radiusSm),
-                  ),
-                  child: Center(
-                    child: isActive
-                        ? const AnimatedEqBars(
-                            isPlaying: true, color: AppColors.secondary)
-                        : const Icon(Icons.music_off_outlined,
-                            color: AppColors.textMuted, size: 20),
-                  ),
+      child: Dismissible(
+        key: ValueKey('room_history_${item.roomId}'),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: AppDimens.lg),
+          decoration: BoxDecoration(
+            color: AppColors.error.withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.delete_outline, color: Colors.white, size: 22),
+              SizedBox(width: 6),
+              Text(
+                'Remove',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
                 ),
-                const SizedBox(width: AppDimens.md),
-
-                // Details: Name, Host, Code
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              liveRoom?.name ?? item.name,
-                              style: AppTypography.titleMedium.copyWith(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.15),
-                              borderRadius:
-                                  BorderRadius.circular(AppDimens.radiusSm),
-                              border: Border.all(
-                                color:
-                                    AppColors.primary.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            child: Text(
-                              '#${item.code}',
-                              style: AppTypography.labelSmall.copyWith(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                        ],
+              ),
+            ],
+          ),
+        ),
+        onDismissed: (_) {
+          ref.read(roomControllerProvider.notifier).removeRoomFromHistory(
+                uid: uid,
+                roomId: item.roomId,
+              );
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surfaceCard,
+            borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+            border: Border.all(
+              color: AppColors.glassBorder,
+              width: 1,
+            ),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+              onTap: () {
+                // One-tap direct re-entry
+                context.push('/room/${item.roomId}');
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(AppDimens.md),
+                child: Row(
+                  children: [
+                    // Equalizer / Music Art Tile
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? AppColors.primary.withValues(alpha: 0.2)
+                            : AppColors.surfaceLight,
+                        borderRadius:
+                            BorderRadius.circular(AppDimens.radiusMd),
+                        border: Border.all(
+                          color: isActive
+                              ? AppColors.primary.withValues(alpha: 0.3)
+                              : AppColors.glassBorder,
+                        ),
                       ),
-                      const SizedBox(height: 3),
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              'Host: ${item.adminName}',
-                              style: AppTypography.bodySmall.copyWith(
+                      child: Center(
+                        child: isActive
+                            ? const AnimatedEqBars(
+                                isPlaying: true,
+                                color: AppColors.secondary,
+                                height: 20,
+                              )
+                            : const Icon(
+                                Icons.music_off_outlined,
                                 color: AppColors.textMuted,
+                                size: 22,
                               ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                      ),
+                    ),
+                    const SizedBox(width: AppDimens.md),
+
+                    // Details: Name, Host, Code
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  liveRoom?.name ?? item.name,
+                                  style: AppTypography.titleMedium.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(
+                                      AppDimens.radiusFull),
+                                  border: Border.all(
+                                    color:
+                                        AppColors.primary.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Text(
+                                  '#${item.code}',
+                                  style: AppTypography.labelSmall.copyWith(
+                                    color: AppColors.primaryLight,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Text('•',
-                              style: AppTypography.bodySmall
-                                  .copyWith(color: AppColors.textMuted)),
-                          const SizedBox(width: 8),
-                          Text(
-                            isActive ? '$memberCount listening' : 'Room Ended',
-                            style: AppTypography.bodySmall.copyWith(
-                              color: isActive
-                                  ? AppColors.secondary
-                                  : AppColors.textMuted,
-                              fontWeight: isActive
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                            ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  'Host: ${item.adminName}',
+                                  style: AppTypography.bodySmall.copyWith(
+                                    color: AppColors.textMuted,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text('•',
+                                  style: AppTypography.bodySmall
+                                      .copyWith(color: AppColors.textMuted)),
+                              const SizedBox(width: 6),
+                              if (isActive) ...[
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.success,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                              ],
+                              Text(
+                                isActive
+                                    ? '$memberCount listening'
+                                    : 'Room Ended',
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: isActive
+                                      ? AppColors.secondary
+                                      : AppColors.textMuted,
+                                  fontWeight: isActive
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
+                    ),
 
-                // Delete from history button
-                IconButton(
-                  icon: const Icon(Icons.close,
-                      size: 16, color: AppColors.textMuted),
-                  tooltip: 'Remove from history',
-                  onPressed: () {
-                    ref
-                        .read(roomControllerProvider.notifier)
-                        .removeRoomFromHistory(
-                          uid: uid,
-                          roomId: item.roomId,
-                        );
-                  },
+                    const SizedBox(width: AppDimens.xs),
+                    const Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 14,
+                      color: AppColors.textMuted,
+                    ),
+                  ],
                 ),
-                const Icon(Icons.chevron_right,
-                    size: 20, color: AppColors.textSecondary),
-              ],
+              ),
             ),
           ),
         ),

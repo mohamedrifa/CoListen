@@ -8,9 +8,11 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../queue/presentation/providers/queue_providers.dart';
+import '../../../queue/presentation/widgets/queue_bottom_sheet.dart';
 import '../../data/services/youtube_iframe_player_service.dart';
 import '../../domain/entities/playback_state_entity.dart';
 import '../../domain/services/player_service.dart';
+import '../../../room/domain/entities/room_entity.dart';
 import '../../../room/presentation/providers/room_providers.dart';
 import '../providers/playback_sync_provider.dart';
 import 'playback_controls_row.dart';
@@ -95,6 +97,7 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
     final player = ref.watch(playerServiceProvider);
     final user = ref.watch(authStateProvider).valueOrNull;
     final room = ref.watch(currentRoomProvider(widget.roomId)).valueOrNull;
+    final queueItems = ref.watch(roomQueueProvider(widget.roomId)).valueOrNull ?? [];
     final mq = MediaQuery.of(context);
     final isPip = widget.isPipMode ||
         ref.watch(pipModeProvider) ||
@@ -148,7 +151,8 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
             // Layer 0: App Player View (Permanently mounted to preserve Android SurfaceProducer & MediaCodec decoder)
             Offstage(
               offstage: _mode != NowPlayingMode.player,
-              child: _buildPlayerContent(playback, player, user),
+              child: _buildPlayerContent(
+                  playback, player, user, room, queueItems.length),
             ),
 
             // Layer 1: YouTube Hub View (Lazily created on first open, then kept mounted to preserve search & login state)
@@ -188,8 +192,10 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
   Widget _buildPlayerContent(
     PlaybackStateEntity? playback,
     PlayerService player,
-    UserEntity? user,
-  ) {
+    UserEntity? user, [
+    RoomEntity? room,
+    int queueCount = 0,
+  ]) {
     if (playback == null || !playback.hasTrack) {
       return Center(
         child: SingleChildScrollView(
@@ -606,6 +612,17 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
                         }
                       : null,
                   onPrevious: () {},
+                  onQueueTap: room != null
+                      ? () {
+                          showModalBottomSheet(
+                            context: context,
+                            backgroundColor: Colors.transparent,
+                            isScrollControlled: true,
+                            builder: (_) => QueueBottomSheet(room: room),
+                          );
+                        }
+                      : null,
+                  queueCount: queueCount,
                 ),
               ],
             ),
@@ -639,7 +656,8 @@ class _ModeChip extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.transparent,
+          gradient: isSelected ? AppColors.primaryGradient : null,
+          color: isSelected ? null : Colors.transparent,
           borderRadius: BorderRadius.circular(AppDimens.radiusFull),
         ),
         child: Row(

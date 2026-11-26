@@ -144,6 +144,7 @@ class MainActivity : FlutterActivity() {
                     val positionMs = (call.argument<Number>("positionMs"))?.toLong() ?: 0L
                     val durationMs = (call.argument<Number>("durationMs"))?.toLong() ?: 0L
                     val speed = (call.argument<Number>("speed"))?.toFloat() ?: 1.0f
+                    val thumbnailUrl = call.argument<String>("thumbnailUrl")
                     isPlaying = call.argument<Boolean>("isPlaying") ?: true
                     if (isPlaying && isActivityPaused) {
                         startKeepAliveLoop()
@@ -151,7 +152,7 @@ class MainActivity : FlutterActivity() {
                         stopKeepAliveLoop()
                     }
                     updatePipParams()
-                    CoListenMediaService.startService(this, title, artist, isPlaying, positionMs, durationMs, speed)
+                    CoListenMediaService.startService(this, title, artist, isPlaying, positionMs, durationMs, speed, thumbnailUrl)
                     result.success(true)
                 }
                 "updatePlaybackState" -> {
@@ -160,6 +161,7 @@ class MainActivity : FlutterActivity() {
                     val positionMs = (call.argument<Number>("positionMs"))?.toLong() ?: 0L
                     val durationMs = (call.argument<Number>("durationMs"))?.toLong() ?: 0L
                     val speed = (call.argument<Number>("speed"))?.toFloat() ?: 1.0f
+                    val thumbnailUrl = call.argument<String>("thumbnailUrl")
                     isPlaying = call.argument<Boolean>("isPlaying") ?: true
                     if (isPlaying && isActivityPaused) {
                         startKeepAliveLoop()
@@ -167,7 +169,7 @@ class MainActivity : FlutterActivity() {
                         stopKeepAliveLoop()
                     }
                     updatePipParams()
-                    CoListenMediaService.update(this, title, artist, isPlaying, positionMs, durationMs, speed)
+                    CoListenMediaService.update(this, title, artist, isPlaying, positionMs, durationMs, speed, thumbnailUrl)
                     result.success(true)
                 }
                 "stopForegroundPlayback" -> {

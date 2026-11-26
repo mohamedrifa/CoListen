@@ -54,9 +54,11 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
 
   StreamSubscription? _remoteSubscription;
   StreamSubscription? _statusSubscription;
+  StreamSubscription? _positionSubscription;
   Timer? _driftTimer;
   DateTime? _lastSeekTime;
   bool _isDisposed = false;
+  int _lastKnownDurationMs = 0;
 
   PlaybackSyncNotifier(
     this.roomId,
@@ -135,9 +137,8 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
         final posMs = _player.currentPosition.inMilliseconds;
         final durMs = current.durationMs > 0
             ? current.durationMs
-            : (_player is YoutubeIframePlayerService
-                ? (_player.durationSeconds * 1000).toInt()
-                : 0);
+            : _player.totalDuration.inMilliseconds;
+        if (durMs > 0) _lastKnownDurationMs = durMs;
         if (status == PlayerStatus.playing) {
           _mediaService?.updateState(
             title: title,
@@ -145,6 +146,7 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
             isPlaying: true,
             positionMs: posMs,
             durationMs: durMs,
+            thumbnailUrl: current.thumbnailUrl,
           );
         } else if (status == PlayerStatus.paused) {
           if (!current.isPlaying) {
@@ -154,6 +156,7 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
               isPlaying: false,
               positionMs: posMs,
               durationMs: durMs,
+              thumbnailUrl: current.thumbnailUrl,
             );
           } else {
             // The room is actively playing; this pause was caused by OS window detach (e.g. closing PiP popup).
@@ -179,6 +182,42 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
       }
     });
 
+    int lastNotifiedSec = -1;
+    _positionSubscription = _player.positionStream.listen((pos) {
+      if (_isDisposed) return;
+      final current = state.valueOrNull;
+      if (current == null || !current.hasTrack || !current.isPlaying) return;
+
+      final totalMs = current.durationMs > 0
+          ? current.durationMs
+          : _player.totalDuration.inMilliseconds;
+
+      final currentSec = pos.inSeconds;
+      if ((totalMs > 0 && _lastKnownDurationMs != totalMs) ||
+          (currentSec != lastNotifiedSec && currentSec % 5 == 0)) {
+        lastNotifiedSec = currentSec;
+        _lastKnownDurationMs = totalMs;
+
+        final title = current.title.isNotEmpty ? current.title : 'CoListen Track';
+        final artist = current.artist.isNotEmpty ? current.artist : 'Room Playback';
+        _mediaService?.updateState(
+          title: title,
+          artist: artist,
+          isPlaying: true,
+          positionMs: pos.inMilliseconds,
+          durationMs: totalMs,
+          thumbnailUrl: current.thumbnailUrl,
+        );
+
+        if (current.durationMs == 0 && totalMs > 0) {
+          _repo.updatePlayback(
+            roomId,
+            current.copyWith(durationMs: totalMs),
+          ).catchError((_) {});
+        }
+      }
+    });
+
     _startDriftMonitoring();
   }
 
@@ -193,9 +232,8 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
       final posMs = targetPosition.inMilliseconds;
       final durMs = remote.durationMs > 0
           ? remote.durationMs
-          : (_player is YoutubeIframePlayerService
-              ? (_player.durationSeconds * 1000).toInt()
-              : 0);
+          : _player.totalDuration.inMilliseconds;
+      if (durMs > 0) _lastKnownDurationMs = durMs;
       if (remote.isPlaying) {
         _mediaService?.startForeground(
           title: title,
@@ -203,6 +241,7 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
           isPlaying: true,
           positionMs: posMs,
           durationMs: durMs,
+          thumbnailUrl: remote.thumbnailUrl,
         );
       } else {
         _mediaService?.updateState(
@@ -211,6 +250,7 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
           isPlaying: false,
           positionMs: posMs,
           durationMs: durMs,
+          thumbnailUrl: remote.thumbnailUrl,
         );
       }
     } else {
@@ -304,15 +344,15 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
       final artist = current.artist.isNotEmpty ? current.artist : 'Room Playback';
       final durMs = current.durationMs > 0
           ? current.durationMs
-          : (_player is YoutubeIframePlayerService
-              ? (_player.durationSeconds * 1000).toInt()
-              : 0);
+          : _player.totalDuration.inMilliseconds;
+      if (durMs > 0) _lastKnownDurationMs = durMs;
       _mediaService?.updateState(
         title: title,
         artist: artist,
         isPlaying: current.isPlaying,
         positionMs: targetPosition.inMilliseconds,
         durationMs: durMs,
+        thumbnailUrl: current.thumbnailUrl,
       );
     }
     await _repo.seek(roomId, targetPosition, uid);
@@ -329,6 +369,7 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
     _mediaService?.onSeekRequested = null;
     _remoteSubscription?.cancel();
     _statusSubscription?.cancel();
+    _positionSubscription?.cancel();
     _driftTimer?.cancel();
     _mediaService?.stopForeground();
     super.dispose();

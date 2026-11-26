@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/glass_container.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../playback/presentation/widgets/youtube_hub_sheet.dart';
 import '../../../room/presentation/providers/room_providers.dart';
@@ -24,6 +23,17 @@ class _AddSongBottomSheetState extends ConsumerState<AddSongBottomSheet> {
   final TextEditingController _searchController = TextEditingController();
   List<SearchTrackResult> _results = SongSearchService.curatedPicks;
   bool _isSearching = false;
+  String _selectedGenre = 'All';
+
+  final List<String> _quickGenres = const [
+    'All',
+    'Lo-Fi',
+    'Synthwave',
+    'Chillout',
+    'Pop',
+    'EDM',
+    'Rock',
+  ];
 
   @override
   void dispose() {
@@ -49,6 +59,21 @@ class _AddSongBottomSheetState extends ConsumerState<AddSongBottomSheet> {
     if (text.isNotEmpty) {
       _searchController.text = text;
       _performSearch(text);
+    }
+  }
+
+  void _onGenreSelected(String genre) {
+    setState(() {
+      _selectedGenre = genre;
+    });
+    if (genre == 'All') {
+      _searchController.clear();
+      setState(() {
+        _results = SongSearchService.curatedPicks;
+      });
+    } else {
+      _searchController.text = genre;
+      _performSearch(genre);
     }
   }
 
@@ -82,21 +107,27 @@ class _AddSongBottomSheetState extends ConsumerState<AddSongBottomSheet> {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
-      height: MediaQuery.of(context).size.height * 0.78 + bottomInset,
+      height: MediaQuery.of(context).size.height * 0.82 + bottomInset,
       decoration: const BoxDecoration(
         color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppDimens.radiusXl)),
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(AppDimens.radiusXl)),
+        border: Border(
+          top: BorderSide(color: AppColors.glassBorder, width: 1),
+        ),
       ),
       child: Column(
         children: [
-          // Drag Handle
+          // Drag Grab Handle
           const SizedBox(height: AppDimens.sm),
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.textMuted.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(AppDimens.radiusFull),
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.textMuted.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(AppDimens.radiusFull),
+              ),
             ),
           ),
           const SizedBox(height: AppDimens.md),
@@ -107,79 +138,95 @@ class _AddSongBottomSheetState extends ConsumerState<AddSongBottomSheet> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Add Song to Queue', style: AppTypography.titleLarge),
+                Text('Add Song to Queue',
+                    style: AppTypography.headlineSmall.copyWith(fontSize: 18)),
                 IconButton(
-                  icon: const Icon(Icons.close, color: AppColors.textMuted),
+                  icon: const Icon(Icons.close_rounded,
+                      color: AppColors.textMuted),
+                  splashRadius: 20,
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: AppDimens.sm),
+          const SizedBox(height: AppDimens.xs),
 
           // YouTube Hub Explorer Card
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppDimens.lg),
-            child: InkWell(
-              onTap: () {
-                final room =
-                    ref.read(currentRoomProvider(widget.roomId)).valueOrNull;
-                if (room != null) {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => YouTubeHubSheet(room: room),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  final room =
+                      ref.read(currentRoomProvider(widget.roomId)).valueOrNull;
+                  if (room != null) {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => YouTubeHubSheet(room: room),
+                      ),
+                    );
+                  }
+                },
+                borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppDimens.md, vertical: 10),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.red.withValues(alpha: 0.2),
+                        AppColors.surfaceLight,
+                      ],
                     ),
-                  );
-                }
-              },
-              borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: AppDimens.md, vertical: 10),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.red.withValues(alpha: 0.25),
-                      AppColors.surfaceHighlight,
+                    borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+                    border: Border.all(
+                      color: Colors.red.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.smart_display_rounded,
+                            color: Colors.redAccent, size: 22),
+                      ),
+                      const SizedBox(width: AppDimens.sm + 2),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Open Full YouTube Hub',
+                              style: AppTypography.bodyMedium.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              'Browse playlists, search live & pick any video',
+                              style: AppTypography.labelSmall
+                                  .copyWith(color: AppColors.textMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded,
+                          size: 13, color: AppColors.textMuted),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.smart_display_rounded,
-                        color: Colors.red, size: 24),
-                    const SizedBox(width: AppDimens.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Open Full YouTube Hub',
-                            style: AppTypography.bodyMedium.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          Text(
-                            'Login, browse your playlists & pick any song',
-                            style: AppTypography.labelSmall
-                                .copyWith(color: AppColors.textMuted),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.arrow_forward_ios_rounded,
-                        size: 14, color: AppColors.textMuted),
-                  ],
                 ),
               ),
             ),
           ),
-          const SizedBox(height: AppDimens.sm),
+          const SizedBox(height: AppDimens.md),
 
           // Search Field + Paste Action
           Padding(
@@ -187,43 +234,110 @@ class _AddSongBottomSheetState extends ConsumerState<AddSongBottomSheet> {
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    style: AppTypography.bodyMedium,
-                    decoration: InputDecoration(
-                      hintText: 'Search title, artist or paste URL...',
-                      prefixIcon: const Icon(Icons.search, color: AppColors.textMuted),
-                      suffixIcon: _searchController.text.isNotEmpty
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceLight,
+                      borderRadius:
+                          BorderRadius.circular(AppDimens.radiusFull),
+                      border: Border.all(color: AppColors.glassBorder),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      style: AppTypography.bodyMedium,
+                      decoration: InputDecoration(
+                        hintText: 'Search title, artist or paste link...',
+                        hintStyle: AppTypography.bodySmall
+                            .copyWith(color: AppColors.textMuted),
+                        prefixIcon: const Icon(Icons.search_rounded,
+                            color: AppColors.textMuted, size: 20),
+                        suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear, color: AppColors.textMuted),
+                              icon: const Icon(Icons.clear_rounded,
+                                  color: AppColors.textMuted, size: 18),
+                              splashRadius: 16,
                               onPressed: () {
                                 _searchController.clear();
                                 _performSearch('');
                               },
                             )
                           : null,
-                      filled: true,
-                      fillColor: AppColors.surfaceHighlight,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                        borderSide: BorderSide.none,
+                        border: InputBorder.none,
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 12),
                       ),
+                      onChanged: (val) => _performSearch(val),
                     ),
-                    onChanged: (val) => _performSearch(val),
                   ),
                 ),
                 const SizedBox(width: AppDimens.sm),
-                IconButton.filledTonal(
-                  onPressed: _pasteFromClipboard,
-                  icon: const Icon(Icons.content_paste, size: 20),
-                  tooltip: 'Paste from Clipboard',
-                  style: IconButton.styleFrom(
-                    backgroundColor: AppColors.surfaceHighlight,
-                    foregroundColor: AppColors.secondary,
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceLight,
+                    borderRadius: BorderRadius.circular(AppDimens.radiusFull),
+                    border: Border.all(color: AppColors.glassBorder),
+                  ),
+                  child: IconButton(
+                    onPressed: _pasteFromClipboard,
+                    icon: const Icon(Icons.content_paste_rounded, size: 18),
+                    tooltip: 'Paste link',
+                    color: AppColors.secondary,
+                    splashRadius: 20,
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: AppDimens.sm + 2),
+
+          // Quick Genre / Filter Chips
+          SizedBox(
+            height: 32,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: AppDimens.lg),
+              itemCount: _quickGenres.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final genre = _quickGenres[index];
+                final isSelected = _selectedGenre == genre;
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppDimens.radiusFull),
+                    onTap: () => _onGenreSelected(genre),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primary.withValues(alpha: 0.25)
+                            : AppColors.surfaceLight,
+                        borderRadius:
+                            BorderRadius.circular(AppDimens.radiusFull),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.glassBorder,
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        genre,
+                        style: TextStyle(
+                          color: isSelected
+                              ? AppColors.primaryLight
+                              : AppColors.textMuted,
+                          fontSize: 11,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
           const SizedBox(height: AppDimens.md),
@@ -266,100 +380,140 @@ class _AddSongBottomSheetState extends ConsumerState<AddSongBottomSheet> {
                         ),
                         itemCount: _results.length,
                         separatorBuilder: (_, _) =>
-                            const SizedBox(height: AppDimens.xs),
+                            const SizedBox(height: AppDimens.sm),
                         itemBuilder: (context, index) {
                           final track = _results[index];
 
-                          return GlassContainer(
-                            borderRadius: AppDimens.radiusMd,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppDimens.md,
-                              vertical: AppDimens.sm,
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceLight,
+                              borderRadius:
+                                  BorderRadius.circular(AppDimens.radiusLg),
+                              border: Border.all(
+                                color: AppColors.glassBorder,
+                                width: 1,
+                              ),
                             ),
-                            child: Row(
-                              children: [
-                                // Thumbnail
-                                ClipRRect(
-                                  borderRadius:
-                                      BorderRadius.circular(AppDimens.radiusSm),
-                                  child: Container(
-                                    width: 48,
-                                    height: 48,
-                                    color: AppColors.surfaceHighlight,
-                                    child: track.thumbnailUrl.isNotEmpty
-                                        ? Image.network(
-                                            track.thumbnailUrl,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, _) =>
-                                                const Icon(
-                                              Icons.music_note,
-                                              color: AppColors.primaryLight,
-                                            ),
-                                          )
-                                        : const Icon(
-                                            Icons.music_note,
-                                            color: AppColors.primaryLight,
-                                          ),
-                                  ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppDimens.md,
+                                  vertical: AppDimens.sm,
                                 ),
-                                const SizedBox(width: AppDimens.md),
-
-                                // Title and Artist
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        track.title,
-                                        style: AppTypography.bodyLarge.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        '${track.artist} • ${track.sourceType.label}',
-                                        style: AppTypography.bodySmall.copyWith(
-                                          color: AppColors.textMuted,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: AppDimens.sm),
-
-                                // Add Button
-                                ElevatedButton(
-                                  onPressed: () => _addTrack(track),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primary,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 8,
-                                    ),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    shape: RoundedRectangleBorder(
+                                child: Row(
+                                  children: [
+                                    // Thumbnail
+                                    ClipRRect(
                                       borderRadius: BorderRadius.circular(
-                                          AppDimens.radiusFull),
+                                          AppDimens.radiusMd),
+                                      child: Container(
+                                        width: 46,
+                                        height: 46,
+                                        color: AppColors.surfaceHighlight,
+                                        child: track.thumbnailUrl.isNotEmpty
+                                            ? Image.network(
+                                                track.thumbnailUrl,
+                                                fit: BoxFit.cover,
+                                                errorBuilder:
+                                                    (_, _, _) =>
+                                                        const Icon(
+                                                  Icons.music_note_rounded,
+                                                  color:
+                                                      AppColors.primaryLight,
+                                                ),
+                                              )
+                                            : const Icon(
+                                                Icons.music_note_rounded,
+                                                color:
+                                                    AppColors.primaryLight,
+                                              ),
+                                      ),
                                     ),
-                                  ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.add, size: 16),
-                                      SizedBox(width: 4),
-                                      Text('Add',
-                                          style: TextStyle(fontSize: 12)),
-                                    ],
-                                  ),
+                                    const SizedBox(width: AppDimens.md),
+
+                                    // Title and Artist
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            track.title,
+                                            style: AppTypography.bodyLarge
+                                                .copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '${track.artist} • ${track.sourceType.label}',
+                                            style: AppTypography.bodySmall
+                                                .copyWith(
+                                              color: AppColors.textMuted,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppDimens.sm),
+
+                                    // Gradient Add Button
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        gradient: AppColors.primaryGradient,
+                                        borderRadius: BorderRadius.circular(
+                                            AppDimens.radiusFull),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: AppColors.primary
+                                                .withValues(alpha: 0.3),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.circular(
+                                              AppDimens.radiusFull),
+                                          onTap: () => _addTrack(track),
+                                          child: const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 14,
+                                              vertical: 7,
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.add_rounded,
+                                                    size: 15,
+                                                    color: Colors.white),
+                                                SizedBox(width: 3),
+                                                Text(
+                                                  'Add',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                    fontWeight:
+                                                        FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           );
                         },

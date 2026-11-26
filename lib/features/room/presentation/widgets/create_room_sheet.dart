@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/glass_container.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/entities/room_entity.dart';
 import '../providers/room_providers.dart';
@@ -74,13 +73,43 @@ class _CreateRoomSheetState extends ConsumerState<CreateRoomSheet> {
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: GlassContainer(
-        borderRadius: AppDimens.radiusLg,
-        padding: const EdgeInsets.all(AppDimens.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceCard,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppDimens.radiusLg),
+          ),
+          border: Border.all(
+            color: AppColors.glassBorder,
+            width: 1.2,
+          ),
+        ),
+        padding: const EdgeInsets.fromLTRB(
+          AppDimens.lg,
+          AppDimens.sm,
+          AppDimens.lg,
+          AppDimens.xl,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+            // Top Drag Pill Indicator
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.textMuted.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppDimens.md),
+
+            // Header & Close
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -91,22 +120,27 @@ class _CreateRoomSheetState extends ConsumerState<CreateRoomSheet> {
                 ),
               ],
             ),
-            const SizedBox(height: AppDimens.sm),
+            const SizedBox(height: AppDimens.xs),
             Text(
               'Set up a room to listen in sync with your friends.',
-              style: AppTypography.bodyMedium,
+              style: AppTypography.bodyMedium.copyWith(
+                color: AppColors.textMuted,
+              ),
             ),
-            const SizedBox(height: AppDimens.md),
+            const SizedBox(height: AppDimens.lg),
 
-            // Room Name
+            // Room Name with Dice Suggestion Button
             TextField(
               controller: _nameController,
-              style: const TextStyle(color: AppColors.textPrimary),
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 16,
+              ),
               decoration: InputDecoration(
                 labelText: 'Room Name',
                 labelStyle: const TextStyle(color: AppColors.textSecondary),
                 filled: true,
-                fillColor: AppColors.surfaceHighlight,
+                fillColor: AppColors.surfaceLight,
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.casino_outlined,
                       color: AppColors.primaryLight),
@@ -115,19 +149,35 @@ class _CreateRoomSheetState extends ConsumerState<CreateRoomSheet> {
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                  borderSide: BorderSide.none,
+                  borderSide: const BorderSide(color: AppColors.glassBorder),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                  borderSide: const BorderSide(color: AppColors.glassBorder),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                  borderSide: const BorderSide(
+                    color: AppColors.primary,
+                    width: 1.5,
+                  ),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: AppDimens.md,
+                  vertical: AppDimens.md,
                 ),
               ),
             ),
             const SizedBox(height: AppDimens.md),
 
-            // Toggles
+            // Settings Switches
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: Text('Allow members to add songs',
                   style: AppTypography.bodyLarge),
               subtitle: Text('Everyone can add tracks to the shared queue',
-                  style: AppTypography.labelSmall),
+                  style: AppTypography.bodySmall
+                      .copyWith(color: AppColors.textMuted)),
               value: _membersCanAddSongs,
               activeColor: AppColors.primary,
               onChanged: (val) => setState(() => _membersCanAddSongs = val),
@@ -138,7 +188,8 @@ class _CreateRoomSheetState extends ConsumerState<CreateRoomSheet> {
                   style: AppTypography.bodyLarge),
               subtitle: Text(
                   'Track skips when 50% of listeners vote to skip',
-                  style: AppTypography.labelSmall),
+                  style: AppTypography.bodySmall
+                      .copyWith(color: AppColors.textMuted)),
               value: _membersCanVoteSkip,
               activeColor: AppColors.primary,
               onChanged: (val) => setState(() => _membersCanVoteSkip = val),
@@ -146,23 +197,52 @@ class _CreateRoomSheetState extends ConsumerState<CreateRoomSheet> {
 
             const SizedBox(height: AppDimens.lg),
 
-            // Submit Button
-            ElevatedButton(
-              onPressed: isLoading ? null : _handleCreate,
-              child: isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Create Room & Launch'),
+            // Full-Width Gradient CTA Button
+            Container(
+              height: 52,
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                borderRadius: BorderRadius.circular(AppDimens.radiusFull),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppDimens.radiusFull),
+                  onTap: isLoading ? null : _handleCreate,
+                  child: Center(
+                    child: isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Create Room & Launch',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }

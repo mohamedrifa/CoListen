@@ -1,0 +1,47 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>CoListen · 6 · Shared Queue sheet</title><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>
+:root{color-scheme:dark;--bg:#0D0D12;--sf:#161622;--hi:#1E1E2E;--p:#7C4DFF;--pl:#B388FF;--c:#00E5FF;--ok:#00E676;--er:#FF1744;--t:#fff;--t2:#A0A0B8;--mu:#62627A;--bd:rgba(255,255,255,.08);--g:linear-gradient(135deg,#7C4DFF,#00E5FF);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:#07070a;color:var(--t);font-family:Inter,system-ui,sans-serif}
+header{padding:40px 24px 8px;text-align:center}
+header h1{font:700 30px Sora,Inter,sans-serif;margin:12px 0 4px}
+header p{color:var(--t2);margin:0}
+.wrap{display:flex;flex-wrap:wrap;gap:36px;justify-content:center;padding:32px 16px 64px}
+figure{margin:0;text-align:center}
+figcaption{color:var(--t2);font-size:13px;margin-top:12px}
+.ph{width:270px;height:560px;border-radius:38px;background:var(--bg);border:6px solid #23232f;position:relative;overflow:hidden;text-align:left;padding:34px 16px 14px;display:flex;flex-direction:column;gap:10px;font-size:12px;box-shadow:0 20px 50px rgba(124,77,255,.15)}
+.ph:before{content:"";position:absolute;top:8px;left:50%;width:70px;height:16px;margin-left:-35px;background:#000;border-radius:10px}
+.glow{position:absolute;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(124,77,255,.35),transparent 70%);top:-60px;left:15px;pointer-events:none}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:18px;padding:10px}
+.btn{border-radius:999px;padding:12px;text-align:center;font-weight:600;font-size:13px}
+.gb{background:var(--g);color:#fff}.wb{background:#fff;color:#111}.ob{border:1px solid var(--bd);color:var(--pl);background:rgba(255,255,255,.03)}
+.chip{display:inline-block;border-radius:999px;padding:3px 9px;font-size:10px;background:var(--hi);color:var(--t2)}
+.row{display:flex;align-items:center;gap:10px}.sp{flex:1}
+.art{width:42px;height:42px;border-radius:12px;background:var(--g);flex:none}
+.art.b{background:linear-gradient(135deg,#FF4081,#7C4DFF)}.art.c{background:linear-gradient(135deg,#00E5FF,#00B0FF)}
+.mu{color:var(--t2);font-size:11px}.h{font:700 20px Sora,Inter,sans-serif;margin:0}
+.eq{display:inline-flex;gap:2px;align-items:flex-end;height:16px}.eq i{width:3px;background:var(--c);border-radius:2px;animation:e .8s infinite ease-in-out alternate}
+.eq i:nth-child(1){height:6px}.eq i:nth-child(2){height:14px;animation-delay:.2s}.eq i:nth-child(3){height:9px;animation-delay:.4s}
+@keyframes e{to{transform:scaleY(.4)}}
+.av{width:34px;height:34px;border-radius:50%;background:var(--hi);border:2px solid var(--ok);flex:none}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--sf);border-radius:26px 26px 0 0;padding:12px 16px 16px;display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--bd)}
+.grab{width:36px;height:4px;border-radius:4px;background:var(--mu);margin:0 auto}
+.in{background:var(--hi);border-radius:14px;padding:12px;color:var(--t2)}
+.code{display:flex;gap:6px;justify-content:center}.code b{width:32px;height:42px;border-radius:10px;background:var(--hi);display:grid;place-items:center;font:600 16px monospace}
+.sw{width:32px;height:18px;border-radius:12px;background:var(--p);position:relative}.sw:after{content:"";position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff}
+.stage{height:130px;border-radius:18px;background:linear-gradient(135deg,#2a1b5e,#0d3b4f);box-shadow:0 0 28px rgba(124,77,255,.5);display:grid;place-items:center;font-size:30px}
+.seg{display:flex;background:var(--hi);border-radius:999px;padding:3px}.seg span{flex:1;text-align:center;padding:6px;border-radius:999px;color:var(--t2);font-size:11px}.seg .on{background:var(--p);color:#fff}
+.wave{display:flex;gap:2px;align-items:center;height:26px}.wave i{flex:1;border-radius:2px;background:var(--p);opacity:.9}
+.ctl{display:flex;justify-content:center;align-items:center;gap:20px;font-size:20px}.play{width:56px;height:56px;border-radius:50%;background:var(--g);display:grid;place-items:center;box-shadow:0 0 22px rgba(0,229,255,.4)}
+.dock{display:flex;gap:8px;margin-top:auto}.dock .btn{flex:1;padding:10px}.dock .ic{flex:none;width:42px;background:var(--hi)}
+.role{font-size:10px;padding:2px 8px;border-radius:99px}
+.pal{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:16px}.pal i{width:34px;height:34px;border-radius:10px;border:1px solid var(--bd)}
+body{display:grid;place-items:center;min-height:100dvh;background:#0D0D12}
+.ph{width:min(100%,430px);height:min(100dvh,880px);border:0;border-radius:0;box-shadow:none;padding-top:44px;font-size:13px}
+.ph:before{display:none}
+@media(min-width:500px){.ph{border:1px solid var(--bd);border-radius:32px;margin:16px 0}}</style></head><body><div class="ph"><div class="mu" style="opacity:.4">Room</div><div class="stage" style="height:70px;opacity:.4"></div>
+<div class="sheet" style="top:120px"><div class="grab"></div><div class="row"><b class="h sp" style="font-size:17px">Up next · 3</b><span class="chip" style="background:var(--p);color:#fff">＋ Add song</span></div>
+<div class="card row" style="border-color:rgba(0,229,255,.4)"><div class="art"></div><div class="sp"><b>Blinding Lights</b><div class="mu">The Weeknd</div></div><div class="eq"><i></i><i></i><i></i></div></div>
+<div class="row">⋮⋮<div class="art b"></div><div class="sp"><b>Midnight City</b><div class="mu">M83 • 4:03 • by Kai</div></div><span class="chip">👍 2/3</span></div>
+<div class="row">⋮⋮<div class="art c"></div><div class="sp"><b>Lo-Fi Beats</b><div class="mu">Chillhop • 3:45 • by Ava</div></div><span class="chip">👍 0/3</span></div>
+<div class="row">⋮⋮<div class="art"></div><div class="sp"><b>Sunset Lover</b><div class="mu">Petit Biscuit • 3:57</div></div><span class="chip" style="color:var(--er)">🗑</span></div></div></div></body></html>

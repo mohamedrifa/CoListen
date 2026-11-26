@@ -618,9 +618,22 @@ class _YouTubeHubSheetState extends ConsumerState<YouTubeHubSheet> {
     );
   }
 
-  void _playTrackNowInAppPlayer(String videoId, String title) {
+  void _playTrackNowInAppPlayer(String videoId, String title) async {
     final currentUser = ref.read(authStateProvider).valueOrNull;
     if (currentUser == null) return;
+
+    int detectedDurationMs = 0;
+    try {
+      final res = await _controller.runJavaScriptReturningResult(
+        '(function(){ const v = document.querySelector("video"); return (v && isFinite(v.duration) && v.duration > 0) ? Math.round(v.duration * 1000) : 0; })()',
+      );
+      if (res is num && res > 0) {
+        detectedDurationMs = res.toInt();
+      } else if (res is String) {
+        final parsed = int.tryParse(res);
+        if (parsed != null && parsed > 0) detectedDurationMs = parsed;
+      }
+    } catch (_) {}
 
     // Pause any video in hub webview
     _controller.runJavaScript(
@@ -634,7 +647,7 @@ class _YouTubeHubSheetState extends ConsumerState<YouTubeHubSheet> {
       title: title,
       artist: 'YouTube',
       thumbnailUrl: 'https://img.youtube.com/vi/$videoId/hqdefault.jpg',
-      durationMs: 0,
+      durationMs: detectedDurationMs,
       positionMs: 0,
       status: 'playing',
       updatedAt: DateTime.now(),
@@ -644,6 +657,8 @@ class _YouTubeHubSheetState extends ConsumerState<YouTubeHubSheet> {
     ref
         .read(playbackRepositoryProvider)
         .updatePlayback(widget.room.id, newState);
+
+    if (!mounted) return;
 
     if (widget.isEmbedded) {
       widget.onSwitchToAppPlayer?.call();
@@ -660,9 +675,22 @@ class _YouTubeHubSheetState extends ConsumerState<YouTubeHubSheet> {
     );
   }
 
-  void _addTrackToRoomQueue(String videoId, String title) {
+  void _addTrackToRoomQueue(String videoId, String title) async {
     final currentUser = ref.read(authStateProvider).valueOrNull;
     if (currentUser == null) return;
+
+    int detectedDurationMs = 0;
+    try {
+      final res = await _controller.runJavaScriptReturningResult(
+        '(function(){ const v = document.querySelector("video"); return (v && isFinite(v.duration) && v.duration > 0) ? Math.round(v.duration * 1000) : 0; })()',
+      );
+      if (res is num && res > 0) {
+        detectedDurationMs = res.toInt();
+      } else if (res is String) {
+        final parsed = int.tryParse(res);
+        if (parsed != null && parsed > 0) detectedDurationMs = parsed;
+      }
+    } catch (_) {}
 
     // Pause any video in hub webview
     _controller.runJavaScript(
@@ -676,7 +704,7 @@ class _YouTubeHubSheetState extends ConsumerState<YouTubeHubSheet> {
       title: title,
       artist: 'YouTube',
       thumbnailUrl: 'https://img.youtube.com/vi/$videoId/hqdefault.jpg',
-      durationMs: 0,
+      durationMs: detectedDurationMs,
       addedBy: currentUser.uid,
       addedByName: currentUser.displayName,
       addedAt: DateTime.now(),
@@ -687,6 +715,8 @@ class _YouTubeHubSheetState extends ConsumerState<YouTubeHubSheet> {
           roomId: widget.room.id,
           item: queueItem,
         );
+
+    if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

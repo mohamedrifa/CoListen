@@ -5,7 +5,6 @@ import '../../../../core/services/background_media_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/glass_container.dart';
 import '../../../../core/widgets/animated_eq_bars.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../invites/domain/services/native_share_service.dart';
@@ -286,15 +285,30 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
                     children: [
                       // Room Header Card (Hidden in PiP and YouTube Hub mode to maximize video / search space)
                       if (!isPip && !_isYouTubeHubMode) ...[
-                        GlassContainer(
+                        Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceCard,
+                            borderRadius:
+                                BorderRadius.circular(AppDimens.radiusLg),
+                            border: Border.all(
+                              color: AppColors.glassBorder,
+                              width: 1,
+                            ),
+                          ),
+                          padding: const EdgeInsets.all(AppDimens.md),
                           child: Row(
                             children: [
                               Container(
                                 width: 48,
                                 height: 48,
                                 decoration: BoxDecoration(
-                                  color: AppColors.primaryDark,
-                                  borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                                  color: AppColors.surfaceLight,
+                                  borderRadius:
+                                      BorderRadius.circular(AppDimens.radiusMd),
+                                  border: Border.all(
+                                    color: AppColors.primary
+                                        .withValues(alpha: 0.3),
+                                  ),
                                 ),
                                 child: const Center(
                                   child: AnimatedEqBars(
@@ -308,7 +322,8 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(room.name, style: AppTypography.titleLarge),
+                                    Text(room.name,
+                                        style: AppTypography.titleLarge),
                                     const SizedBox(height: 2),
                                     Text(
                                       'Role: ${myRole.icon} ${myRole.label}',
@@ -324,10 +339,13 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
                                 ),
                               ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: AppColors.success.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+                                  color:
+                                      AppColors.success.withValues(alpha: 0.15),
+                                  borderRadius:
+                                      BorderRadius.circular(AppDimens.radiusSm),
                                 ),
                                 child: const Text(
                                   'SYNC ACTIVE',
@@ -429,7 +447,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
                         Row(
                           children: [
                             Expanded(
-                              child: ElevatedButton.icon(
+                              child: OutlinedButton.icon(
                                 onPressed: () {
                                   showModalBottomSheet(
                                     context: context,
@@ -438,13 +456,21 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
                                     builder: (_) => QueueBottomSheet(room: room),
                                   );
                                 },
-                                icon: const Icon(Icons.queue_music),
+                                icon: const Icon(Icons.queue_music, size: 18),
                                 label: const Text('Queue'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.textPrimary,
+                                  side: const BorderSide(color: AppColors.glassBorder),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(AppDimens.radiusFull),
+                                  ),
+                                ),
                               ),
                             ),
                             const SizedBox(width: AppDimens.sm),
                             Expanded(
-                              child: ElevatedButton.icon(
+                              child: OutlinedButton.icon(
                                 onPressed: () {
                                   showModalBottomSheet(
                                     context: context,
@@ -453,7 +479,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
                                     builder: (_) => MembersBottomSheet(room: room),
                                   );
                                 },
-                                icon: const Icon(Icons.people, size: 18),
+                                icon: const Icon(Icons.people_outline, size: 18),
                                 label: FittedBox(
                                   fit: BoxFit.scaleDown,
                                   child: Text(
@@ -461,20 +487,26 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
                                     maxLines: 1,
                                   ),
                                 ),
-                                style: ElevatedButton.styleFrom(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.textPrimary,
+                                  side: const BorderSide(color: AppColors.glassBorder),
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 8, vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(AppDimens.radiusFull),
+                                  ),
                                 ),
                               ),
                             ),
                             const SizedBox(width: AppDimens.sm),
                             IconButton.filledTonal(
                               onPressed: () => _copyRoomLink(room.code, room.name),
-                              icon: const Icon(Icons.share, size: 20),
+                              icon: const Icon(Icons.share_outlined, size: 18),
                               tooltip: 'Share Code',
                               style: IconButton.styleFrom(
-                                backgroundColor: AppColors.surfaceHighlight,
+                                backgroundColor: AppColors.surfaceLight,
                                 foregroundColor: AppColors.textPrimary,
+                                side: const BorderSide(color: AppColors.glassBorder),
                               ),
                             ),
                           ],

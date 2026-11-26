@@ -6,7 +6,6 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/glass_container.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/room_providers.dart';
 
@@ -52,7 +51,6 @@ class _JoinCodeSheetState extends ConsumerState<JoinCodeSheet> {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final text = data?.text?.trim().toUpperCase() ?? '';
     if (text.isNotEmpty) {
-      // Clean only alphanumeric characters
       final filtered = text.replaceAll(RegExp(r'[^A-Z0-9]'), '');
       if (filtered.isNotEmpty) {
         final codeToSet = filtered.length >= AppConstants.roomCodeLength
@@ -111,13 +109,43 @@ class _JoinCodeSheetState extends ConsumerState<JoinCodeSheet> {
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: GlassContainer(
-        borderRadius: AppDimens.radiusLg,
-        padding: const EdgeInsets.all(AppDimens.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceCard,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppDimens.radiusLg),
+          ),
+          border: Border.all(
+            color: AppColors.glassBorder,
+            width: 1.2,
+          ),
+        ),
+        padding: const EdgeInsets.fromLTRB(
+          AppDimens.lg,
+          AppDimens.sm,
+          AppDimens.lg,
+          AppDimens.xl,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+            // Top Drag Handle Indicator
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.textMuted.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppDimens.md),
+
+            // Header & Close
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -131,9 +159,11 @@ class _JoinCodeSheetState extends ConsumerState<JoinCodeSheet> {
             const SizedBox(height: AppDimens.xs),
             Text(
               'Enter the 6-character room code to start listening in sync.',
-              style: AppTypography.bodyMedium,
+              style: AppTypography.bodyMedium.copyWith(
+                color: AppColors.textMuted,
+              ),
             ),
-            const SizedBox(height: AppDimens.lg),
+            const SizedBox(height: AppDimens.xl),
 
             // 6-Character Interactive Box Display with Overlay TextField
             GestureDetector(
@@ -155,21 +185,21 @@ class _JoinCodeSheetState extends ConsumerState<JoinCodeSheet> {
                         height: 56,
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.surfaceHighlight,
-                          borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+                          color: AppColors.surfaceLight,
+                          borderRadius: BorderRadius.circular(AppDimens.radiusMd),
                           border: Border.all(
                             color: isCurrent
                                 ? AppColors.primary
                                 : char.isNotEmpty
                                     ? AppColors.secondary
                                     : AppColors.glassBorder,
-                            width: isCurrent ? 2 : 1.5,
+                            width: isCurrent ? 2 : 1.2,
                           ),
                           boxShadow: isCurrent
                               ? [
                                   BoxShadow(
                                     color: AppColors.primary.withValues(alpha: 0.35),
-                                    blurRadius: 8,
+                                    blurRadius: 10,
                                     spreadRadius: 1,
                                   ),
                                 ]
@@ -235,17 +265,22 @@ class _JoinCodeSheetState extends ConsumerState<JoinCodeSheet> {
             ),
             const SizedBox(height: AppDimens.md),
 
+            // Inline Error Text
             if (_errorMessage.isNotEmpty) ...[
               Center(
                 child: Text(
                   _errorMessage,
-                  style: const TextStyle(color: AppColors.error, fontSize: 13),
+                  style: const TextStyle(
+                    color: AppColors.error,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
               const SizedBox(height: AppDimens.sm),
             ],
 
-            // Paste button
+            // Paste from Clipboard Button
             Center(
               child: TextButton.icon(
                 onPressed: _pasteFromClipboard,
@@ -253,28 +288,58 @@ class _JoinCodeSheetState extends ConsumerState<JoinCodeSheet> {
                 label: const Text('Paste from Clipboard'),
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.primaryLight,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 ),
               ),
             ),
             const SizedBox(height: AppDimens.md),
 
-            // Join Button
-            ElevatedButton(
-              onPressed: isLoading ? null : _handleJoin,
-              child: isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Join Room Now'),
+            // Full-Width Gradient CTA Button
+            Container(
+              height: 52,
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                borderRadius: BorderRadius.circular(AppDimens.radiusFull),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppDimens.radiusFull),
+                  onTap: isLoading ? null : _handleJoin,
+                  child: Center(
+                    child: isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Join Room Now',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }

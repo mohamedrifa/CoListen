@@ -17,6 +17,10 @@ class YoutubeIframePlayerService implements PlayerService {
 
   double get durationSeconds => _cachedDurationSec;
 
+  @override
+  Duration get totalDuration =>
+      Duration(milliseconds: (_cachedDurationSec * 1000).toInt());
+
   YoutubePlayerController get controller {
     _controller ??= YoutubePlayerController(
       params: const YoutubePlayerParams(
@@ -47,6 +51,14 @@ class YoutubeIframePlayerService implements PlayerService {
         _stopPositionPolling();
         _statusController.add(_currentStatus);
         return;
+      }
+
+      if (value.metaData.duration.inMilliseconds > 0) {
+        final metaSec = value.metaData.duration.inMilliseconds / 1000.0;
+        if (metaSec > 0 && metaSec != _cachedDurationSec) {
+          _cachedDurationSec = metaSec;
+          _statusController.add(_currentStatus);
+        }
       }
 
       switch (value.playerState) {
@@ -130,7 +142,10 @@ class YoutubeIframePlayerService implements PlayerService {
 
           if (_cachedDurationSec <= 0) {
             final dur = await _controller!.duration;
-            if (dur > 0) _cachedDurationSec = dur;
+            if (dur > 0 && dur != _cachedDurationSec) {
+              _cachedDurationSec = dur;
+              _statusController.add(_currentStatus);
+            }
           }
 
           // Position-based End of Track Detection: ensures smooth queue progression

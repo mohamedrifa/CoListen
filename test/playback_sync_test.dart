@@ -13,6 +13,7 @@ class FakePlayerService implements PlayerService {
       StreamController<PlayerStatus>.broadcast();
 
   Duration _currentPos = Duration.zero;
+  Duration _totalDuration = Duration.zero;
   PlayerStatus _status = PlayerStatus.idle;
   String? _trackId;
   double _playbackRate = 1.0;
@@ -25,6 +26,9 @@ class FakePlayerService implements PlayerService {
 
   @override
   Duration get currentPosition => _currentPos;
+
+  @override
+  Duration get totalDuration => _totalDuration;
 
   @override
   PlayerStatus get currentStatus => _status;

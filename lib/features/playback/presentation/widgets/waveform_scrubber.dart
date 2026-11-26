@@ -32,7 +32,9 @@ class _WaveformScrubberState extends State<WaveformScrubber> {
   @override
   Widget build(BuildContext context) {
     final totalSeconds = widget.duration.inSeconds.toDouble();
-    final currentSeconds = widget.position.inSeconds.toDouble().clamp(0.0, totalSeconds > 0 ? totalSeconds : 1.0);
+    final currentSeconds = widget.position.inSeconds
+        .toDouble()
+        .clamp(0.0, totalSeconds > 0 ? totalSeconds : 1.0);
     final sliderValue = _dragValue ?? currentSeconds;
 
     return Column(
@@ -53,7 +55,9 @@ class _WaveformScrubberState extends State<WaveformScrubber> {
           child: Slider(
             min: 0.0,
             max: totalSeconds > 0 ? totalSeconds : 1.0,
-            value: totalSeconds > 0 ? sliderValue.clamp(0.0, totalSeconds) : 0.0,
+            value: totalSeconds > 0
+                ? sliderValue.clamp(0.0, totalSeconds)
+                : 0.0,
             onChanged: widget.canControl && totalSeconds > 0
                 ? (val) => setState(() => _dragValue = val)
                 : null,
@@ -79,12 +83,16 @@ class _WaveformScrubberState extends State<WaveformScrubber> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.lock_outline, size: 12, color: AppColors.textMuted),
+                      const Icon(Icons.lock_outline,
+                          size: 12, color: AppColors.secondary),
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
-                          'DJ Controlled',
-                          style: AppTypography.labelSmall,
+                          'Synced with DJ',
+                          style: AppTypography.labelSmall.copyWith(
+                            color: AppColors.secondary,
+                            fontWeight: FontWeight.w600,
+                          ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
