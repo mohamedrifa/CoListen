@@ -29,6 +29,9 @@ class CoListenMediaService : Service() {
     private var currentTitle = "CoListen Track"
     private var currentArtist = "Synchronized Listening"
     private var isPlayingState = true
+    private var currentPositionMs = 0L
+    private var currentDurationMs = 0L
+    private var currentSpeed = 1.0f
 
     companion object {
         const val CHANNEL_ID = "colisten_playback_channel"
@@ -46,15 +49,29 @@ class CoListenMediaService : Service() {
         const val EXTRA_TITLE = "EXTRA_TITLE"
         const val EXTRA_ARTIST = "EXTRA_ARTIST"
         const val EXTRA_IS_PLAYING = "EXTRA_IS_PLAYING"
+        const val EXTRA_POSITION_MS = "EXTRA_POSITION_MS"
+        const val EXTRA_DURATION_MS = "EXTRA_DURATION_MS"
+        const val EXTRA_SPEED = "EXTRA_SPEED"
 
         var mediaActionListener: ((action: String) -> Unit)? = null
 
-        fun startService(context: Context, title: String, artist: String, isPlaying: Boolean) {
+        fun startService(
+            context: Context,
+            title: String,
+            artist: String,
+            isPlaying: Boolean,
+            positionMs: Long = 0L,
+            durationMs: Long = 0L,
+            speed: Float = 1.0f
+        ) {
             val intent = Intent(context, CoListenMediaService::class.java).apply {
                 action = ACTION_START
                 putExtra(EXTRA_TITLE, title)
                 putExtra(EXTRA_ARTIST, artist)
                 putExtra(EXTRA_IS_PLAYING, isPlaying)
+                putExtra(EXTRA_POSITION_MS, positionMs)
+                putExtra(EXTRA_DURATION_MS, durationMs)
+                putExtra(EXTRA_SPEED, speed)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -63,12 +80,23 @@ class CoListenMediaService : Service() {
             }
         }
 
-        fun update(context: Context, title: String, artist: String, isPlaying: Boolean) {
+        fun update(
+            context: Context,
+            title: String,
+            artist: String,
+            isPlaying: Boolean,
+            positionMs: Long = 0L,
+            durationMs: Long = 0L,
+            speed: Float = 1.0f
+        ) {
             val intent = Intent(context, CoListenMediaService::class.java).apply {
                 action = ACTION_UPDATE
                 putExtra(EXTRA_TITLE, title)
                 putExtra(EXTRA_ARTIST, artist)
                 putExtra(EXTRA_IS_PLAYING, isPlaying)
+                putExtra(EXTRA_POSITION_MS, positionMs)
+                putExtra(EXTRA_DURATION_MS, durationMs)
+                putExtra(EXTRA_SPEED, speed)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -122,6 +150,12 @@ class CoListenMediaService : Service() {
                     mediaActionListener?.invoke("prev")
                 }
 
+                override fun onSeekTo(pos: Long) {
+                    currentPositionMs = pos
+                    updateMediaSessionState()
+                    mediaActionListener?.invoke("seek:$pos")
+                }
+
                 override fun onStop() {
                     mediaActionListener?.invoke("stop_local")
                     stopForegroundPlayback()
@@ -164,6 +198,9 @@ class CoListenMediaService : Service() {
                 currentTitle = intent.getStringExtra(EXTRA_TITLE) ?: currentTitle
                 currentArtist = intent.getStringExtra(EXTRA_ARTIST) ?: currentArtist
                 isPlayingState = intent.getBooleanExtra(EXTRA_IS_PLAYING, isPlayingState)
+                currentPositionMs = intent.getLongExtra(EXTRA_POSITION_MS, currentPositionMs)
+                currentDurationMs = intent.getLongExtra(EXTRA_DURATION_MS, currentDurationMs)
+                currentSpeed = intent.getFloatExtra(EXTRA_SPEED, currentSpeed)
 
                 updateMediaSessionState()
 
@@ -203,6 +240,8 @@ class CoListenMediaService : Service() {
             PlaybackStateCompat.STATE_PAUSED
         }
 
+        val playbackSpeed = if (isPlayingState) currentSpeed else 0.0f
+
         val playbackState = PlaybackStateCompat.Builder()
             .setActions(
                 PlaybackStateCompat.ACTION_PLAY or
@@ -210,9 +249,15 @@ class CoListenMediaService : Service() {
                 PlaybackStateCompat.ACTION_PLAY_PAUSE or
                 PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
                 PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                PlaybackStateCompat.ACTION_SEEK_TO or
                 PlaybackStateCompat.ACTION_STOP
             )
-            .setState(state, PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1.0f)
+            .setState(
+                state,
+                currentPositionMs,
+                playbackSpeed,
+                android.os.SystemClock.elapsedRealtime()
+            )
             .build()
 
         mediaSession?.setPlaybackState(playbackState)
@@ -223,6 +268,7 @@ class CoListenMediaService : Service() {
             .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, "CoListen Room")
             .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, currentTitle)
             .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, currentArtist)
+            .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, currentDurationMs)
             .build()
 
         mediaSession?.setMetadata(metadata)

@@ -18,12 +18,15 @@ class BackgroundMediaService {
   String _currentTitle = '';
   String _currentArtist = '';
   bool _currentPlaying = false;
+  int _currentPositionMs = 0;
+  int _currentDurationMs = 0;
 
   VoidCallback? onPlayRequested;
   VoidCallback? onPauseRequested;
   VoidCallback? onNextRequested;
   VoidCallback? onPreviousRequested;
   VoidCallback? onStopLocalRequested;
+  void Function(Duration position)? onSeekRequested;
 
   BackgroundMediaService([this._ref]);
 
@@ -66,6 +69,9 @@ class BackgroundMediaService {
               onPreviousRequested?.call();
             } else if (action == 'stop_local') {
               onStopLocalRequested?.call();
+            } else if (action.startsWith('seek:')) {
+              final ms = int.tryParse(action.substring(5)) ?? 0;
+              onSeekRequested?.call(Duration(milliseconds: ms));
             }
             break;
         }
@@ -73,23 +79,31 @@ class BackgroundMediaService {
     } catch (_) {}
   }
 
-  /// Starts the Android foreground service with a persistent media notification
-  /// and acquires a CPU WakeLock so audio plays continuously in Recents and background.
+  /// Starts the Android foreground service with a persistent media notification,
+  /// timeline duration, playback position, and acquires a CPU WakeLock.
   Future<void> startForeground({
     required String title,
     required String artist,
     bool isPlaying = true,
+    int positionMs = 0,
+    int durationMs = 0,
+    double speed = 1.0,
   }) async {
     if (kIsWeb) return;
     _currentTitle = title.isEmpty ? 'CoListen Track' : title;
     _currentArtist = artist.isEmpty ? 'Synchronized Music Room' : artist;
     _currentPlaying = isPlaying;
+    _currentPositionMs = positionMs;
+    _currentDurationMs = durationMs;
 
     try {
       await _channel.invokeMethod('startForegroundPlayback', {
         'title': _currentTitle,
         'artist': _currentArtist,
         'isPlaying': _currentPlaying,
+        'positionMs': _currentPositionMs,
+        'durationMs': _currentDurationMs,
+        'speed': speed,
       });
       _isServiceActive = true;
     } on MissingPluginException {
@@ -97,15 +111,25 @@ class BackgroundMediaService {
     } catch (_) {}
   }
 
-  /// Updates notification title, artist, and play/pause state without restarting the service
+  /// Updates notification title, artist, timeline timers, and play/pause state
   Future<void> updateState({
     required String title,
     required String artist,
     required bool isPlaying,
+    int positionMs = 0,
+    int durationMs = 0,
+    double speed = 1.0,
   }) async {
     if (kIsWeb || !_isServiceActive) {
       if (isPlaying) {
-        await startForeground(title: title, artist: artist, isPlaying: isPlaying);
+        await startForeground(
+          title: title,
+          artist: artist,
+          isPlaying: isPlaying,
+          positionMs: positionMs,
+          durationMs: durationMs,
+          speed: speed,
+        );
       }
       return;
     }
@@ -113,12 +137,17 @@ class BackgroundMediaService {
     _currentTitle = title.isEmpty ? _currentTitle : title;
     _currentArtist = artist.isEmpty ? _currentArtist : artist;
     _currentPlaying = isPlaying;
+    _currentPositionMs = positionMs > 0 ? positionMs : _currentPositionMs;
+    _currentDurationMs = durationMs > 0 ? durationMs : _currentDurationMs;
 
     try {
       await _channel.invokeMethod('updatePlaybackState', {
         'title': _currentTitle,
         'artist': _currentArtist,
         'isPlaying': _currentPlaying,
+        'positionMs': _currentPositionMs,
+        'durationMs': _currentDurationMs,
+        'speed': speed,
       });
     } catch (_) {}
   }

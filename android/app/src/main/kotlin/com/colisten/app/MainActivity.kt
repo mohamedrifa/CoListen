@@ -141,6 +141,9 @@ class MainActivity : FlutterActivity() {
                     requestNotificationPermission()
                     val title = call.argument<String>("title") ?: "CoListen Track"
                     val artist = call.argument<String>("artist") ?: "Synchronized Listening"
+                    val positionMs = (call.argument<Number>("positionMs"))?.toLong() ?: 0L
+                    val durationMs = (call.argument<Number>("durationMs"))?.toLong() ?: 0L
+                    val speed = (call.argument<Number>("speed"))?.toFloat() ?: 1.0f
                     isPlaying = call.argument<Boolean>("isPlaying") ?: true
                     if (isPlaying && isActivityPaused) {
                         startKeepAliveLoop()
@@ -148,12 +151,15 @@ class MainActivity : FlutterActivity() {
                         stopKeepAliveLoop()
                     }
                     updatePipParams()
-                    CoListenMediaService.startService(this, title, artist, isPlaying)
+                    CoListenMediaService.startService(this, title, artist, isPlaying, positionMs, durationMs, speed)
                     result.success(true)
                 }
                 "updatePlaybackState" -> {
                     val title = call.argument<String>("title") ?: "CoListen Track"
                     val artist = call.argument<String>("artist") ?: "Synchronized Listening"
+                    val positionMs = (call.argument<Number>("positionMs"))?.toLong() ?: 0L
+                    val durationMs = (call.argument<Number>("durationMs"))?.toLong() ?: 0L
+                    val speed = (call.argument<Number>("speed"))?.toFloat() ?: 1.0f
                     isPlaying = call.argument<Boolean>("isPlaying") ?: true
                     if (isPlaying && isActivityPaused) {
                         startKeepAliveLoop()
@@ -161,7 +167,7 @@ class MainActivity : FlutterActivity() {
                         stopKeepAliveLoop()
                     }
                     updatePipParams()
-                    CoListenMediaService.update(this, title, artist, isPlaying)
+                    CoListenMediaService.update(this, title, artist, isPlaying, positionMs, durationMs, speed)
                     result.success(true)
                 }
                 "stopForegroundPlayback" -> {
@@ -338,6 +344,29 @@ class MainActivity : FlutterActivity() {
         // instead of destroying MainActivity, so audio playback continues uninterrupted in background!
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) {
             moveTaskToBack(true)
+            if (isPlaying) {
+                isActivityPaused = true
+                startKeepAliveLoop()
+                keepMediaAlive()
+                mediaKeepAliveHandler.postDelayed({
+                    if (isPlaying) {
+                        keepMediaAlive()
+                        findWebView(window.decorView)?.evaluateJavascript(
+                            "if (typeof player !== 'undefined' && !window._intentionalPause) { player.playVideo(); }",
+                            null
+                        )
+                    }
+                }, 150)
+                mediaKeepAliveHandler.postDelayed({
+                    if (isPlaying) {
+                        keepMediaAlive()
+                        findWebView(window.decorView)?.evaluateJavascript(
+                            "if (typeof player !== 'undefined' && !window._intentionalPause) { player.playVideo(); }",
+                            null
+                        )
+                    }
+                }, 500)
+            }
             return
         }
         super.finish()

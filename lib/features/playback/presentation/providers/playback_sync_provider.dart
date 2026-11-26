@@ -101,6 +101,14 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
       // User dismissed notification or clicked stop: pause local audio only
       _player.pause();
     };
+    _mediaService?.onSeekRequested = (pos) {
+      final uid = _currentUid;
+      if (uid != null) {
+        seek(pos, uid);
+      } else {
+        _player.seek(pos);
+      }
+    };
 
     _remoteSubscription = _repo.watchPlaybackState(roomId).listen(
       (remoteState) async {
@@ -124,18 +132,34 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
       if (current != null && current.hasTrack) {
         final title = current.title.isNotEmpty ? current.title : 'CoListen Track';
         final artist = current.artist.isNotEmpty ? current.artist : 'Room Playback';
+        final posMs = _player.currentPosition.inMilliseconds;
+        final durMs = current.durationMs > 0
+            ? current.durationMs
+            : (_player is YoutubeIframePlayerService
+                ? (_player.durationSeconds * 1000).toInt()
+                : 0);
         if (status == PlayerStatus.playing) {
           _mediaService?.updateState(
             title: title,
             artist: artist,
             isPlaying: true,
+            positionMs: posMs,
+            durationMs: durMs,
           );
         } else if (status == PlayerStatus.paused) {
-          _mediaService?.updateState(
-            title: title,
-            artist: artist,
-            isPlaying: false,
-          );
+          if (!current.isPlaying) {
+            _mediaService?.updateState(
+              title: title,
+              artist: artist,
+              isPlaying: false,
+              positionMs: posMs,
+              durationMs: durMs,
+            );
+          } else {
+            // The room is actively playing; this pause was caused by OS window detach (e.g. closing PiP popup).
+            // Auto-resume local player immediately so music never stops!
+            _player.play();
+          }
         }
       }
 
@@ -166,17 +190,27 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
     if (remote.hasTrack) {
       final title = remote.title.isNotEmpty ? remote.title : 'CoListen Track';
       final artist = remote.artist.isNotEmpty ? remote.artist : 'Room Playback';
+      final posMs = targetPosition.inMilliseconds;
+      final durMs = remote.durationMs > 0
+          ? remote.durationMs
+          : (_player is YoutubeIframePlayerService
+              ? (_player.durationSeconds * 1000).toInt()
+              : 0);
       if (remote.isPlaying) {
         _mediaService?.startForeground(
           title: title,
           artist: artist,
           isPlaying: true,
+          positionMs: posMs,
+          durationMs: durMs,
         );
       } else {
         _mediaService?.updateState(
           title: title,
           artist: artist,
           isPlaying: false,
+          positionMs: posMs,
+          durationMs: durMs,
         );
       }
     } else {
@@ -264,6 +298,23 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
 
   Future<void> seek(Duration targetPosition, String uid) async {
     await _player.seek(targetPosition);
+    final current = state.valueOrNull;
+    if (current != null && current.hasTrack) {
+      final title = current.title.isNotEmpty ? current.title : 'CoListen Track';
+      final artist = current.artist.isNotEmpty ? current.artist : 'Room Playback';
+      final durMs = current.durationMs > 0
+          ? current.durationMs
+          : (_player is YoutubeIframePlayerService
+              ? (_player.durationSeconds * 1000).toInt()
+              : 0);
+      _mediaService?.updateState(
+        title: title,
+        artist: artist,
+        isPlaying: current.isPlaying,
+        positionMs: targetPosition.inMilliseconds,
+        durationMs: durMs,
+      );
+    }
     await _repo.seek(roomId, targetPosition, uid);
   }
 
@@ -273,6 +324,9 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
     _mediaService?.onPlayRequested = null;
     _mediaService?.onPauseRequested = null;
     _mediaService?.onNextRequested = null;
+    _mediaService?.onPreviousRequested = null;
+    _mediaService?.onStopLocalRequested = null;
+    _mediaService?.onSeekRequested = null;
     _remoteSubscription?.cancel();
     _statusSubscription?.cancel();
     _driftTimer?.cancel();

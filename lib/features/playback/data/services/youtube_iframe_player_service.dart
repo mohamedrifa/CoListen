@@ -13,6 +13,9 @@ class YoutubeIframePlayerService implements PlayerService {
   Timer? _positionTimer;
   StreamSubscription? _playerStateSubscription;
   double _cachedDurationSec = 0.0;
+  bool _isUserIntentionalPause = false;
+
+  double get durationSeconds => _cachedDurationSec;
 
   YoutubePlayerController get controller {
     _controller ??= YoutubePlayerController(
@@ -53,8 +56,20 @@ class YoutubeIframePlayerService implements PlayerService {
           _injectAdBlockerScript();
           _injectBackgroundPlaybackScript();
           _statusController.add(_currentStatus);
+          controller.duration.then((dur) {
+            if (dur > 0 && dur != _cachedDurationSec) {
+              _cachedDurationSec = dur;
+              _statusController.add(_currentStatus);
+            }
+          }).catchError((_) {});
           break;
         case PlayerState.paused:
+          if (!_isUserIntentionalPause && _currentStatus == PlayerStatus.playing) {
+            // Unintentional pause caused by Android detaching the floating PiP window.
+            // Immediately resume playback so music never stops!
+            play();
+            return;
+          }
           _handlePausedEvent();
           break;
         case PlayerState.buffering:
@@ -92,6 +107,11 @@ class YoutubeIframePlayerService implements PlayerService {
         }
       }
     } catch (_) {}
+
+    if (!_isUserIntentionalPause && _currentStatus == PlayerStatus.playing) {
+      play();
+      return;
+    }
 
     _currentStatus = PlayerStatus.paused;
     _stopPositionPolling();
@@ -283,6 +303,7 @@ class YoutubeIframePlayerService implements PlayerService {
     _trackId = trackId;
     _currentPosition = startPosition;
     _cachedDurationSec = 0.0;
+    _isUserIntentionalPause = !autoPlay;
 
     try {
       // ignore: invalid_use_of_internal_member
@@ -308,6 +329,7 @@ class YoutubeIframePlayerService implements PlayerService {
 
   @override
   Future<void> play() async {
+    _isUserIntentionalPause = false;
     try {
       // ignore: invalid_use_of_internal_member
       controller.webViewController.runJavaScript('window._intentionalPause = false; window._bgPlaybackActive = true;');
@@ -321,6 +343,7 @@ class YoutubeIframePlayerService implements PlayerService {
 
   @override
   Future<void> pause() async {
+    _isUserIntentionalPause = true;
     try {
       // ignore: invalid_use_of_internal_member
       controller.webViewController.runJavaScript('window._intentionalPause = true;');
