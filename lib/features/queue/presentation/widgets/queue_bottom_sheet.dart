@@ -7,6 +7,7 @@ import '../../../../core/widgets/animated_eq_bars.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../playback/presentation/providers/playback_sync_provider.dart';
 import '../../../room/domain/entities/room_entity.dart';
+import '../../../playback/domain/services/player_service.dart';
 import '../../domain/entities/queue_item_entity.dart';
 import '../providers/queue_providers.dart';
 import 'add_song_bottom_sheet.dart';
@@ -334,20 +335,25 @@ class QueueBottomSheet extends ConsumerWidget {
                   );
                 }
 
-                // If user is Controller / Host: provide ReorderableListView with drag handles
-                if (canControl) {
+                // If user can control or add songs: provide ReorderableListView with instant touch drag handles
+                if (canControl || canAdd) {
                   return ReorderableListView.builder(
+                    buildDefaultDragHandles: false,
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppDimens.lg,
                       vertical: AppDimens.sm,
                     ),
                     itemCount: items.length,
                     onReorder: (oldIndex, newIndex) {
+                      var targetIndex = newIndex;
+                      if (oldIndex < newIndex) {
+                        targetIndex -= 1;
+                      }
                       ref.read(queueControllerProvider.notifier).reorderQueue(
                             roomId: room.id,
                             currentQueue: items,
                             oldIndex: oldIndex,
-                            newIndex: newIndex,
+                            newIndex: targetIndex,
                           );
                     },
                     itemBuilder: (context, index) {
@@ -372,9 +378,20 @@ class QueueBottomSheet extends ConsumerWidget {
                             padding: const EdgeInsets.all(AppDimens.sm),
                             child: Row(
                               children: [
-                                // Drag Handle
-                                const Icon(Icons.drag_indicator_rounded,
-                                    size: 20, color: AppColors.textMuted),
+                                // Instant Touch Drag Handle
+                                ReorderableDragStartListener(
+                                  index: index,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 4, vertical: 8),
+                                    color: Colors.transparent,
+                                    child: const Icon(
+                                      Icons.drag_indicator_rounded,
+                                      size: 22,
+                                      color: AppColors.secondary,
+                                    ),
+                                  ),
+                                ),
                                 const SizedBox(width: AppDimens.xs),
 
                                 // Index Number
@@ -425,7 +442,7 @@ class QueueBottomSheet extends ConsumerWidget {
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
-                                        '${item.artist} • by ${item.addedByName}',
+                                        '${item.sourceType == AudioSourceType.youtubeMusic ? 'YT Music • ' : ''}${item.artist} • by ${item.addedByName}',
                                         style: AppTypography.bodySmall.copyWith(
                                           color: AppColors.textMuted,
                                         ),
@@ -569,7 +586,7 @@ class QueueBottomSheet extends ConsumerWidget {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      '${item.artist} • by ${item.addedByName}',
+                                      '${item.sourceType == AudioSourceType.youtubeMusic ? 'YT Music • ' : ''}${item.artist} • by ${item.addedByName}',
                                       style: AppTypography.bodySmall.copyWith(
                                         color: AppColors.textMuted,
                                       ),

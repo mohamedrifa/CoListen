@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:colisten/features/playback/domain/entities/playback_state_entity.dart';
+import 'package:colisten/features/playback/domain/services/player_service.dart';
 import 'package:colisten/features/queue/domain/entities/queue_item_entity.dart';
 import 'package:colisten/features/queue/domain/repositories/queue_repository.dart';
 import 'package:colisten/features/queue/domain/services/youtube_suggestion_pool.dart';
@@ -251,6 +252,23 @@ class QueueRepositoryImpl implements QueueRepository {
         }
 
         if (nextItem != null) {
+          // Record currently playing song in history before advancing
+          if (pbData != null && pbData.hasTrack) {
+            try {
+              final histKey = DateTime.now().millisecondsSinceEpoch.toString();
+              await db.ref('rooms/$roomId/history/$histKey').set({
+                'currentItemId': pbData.currentItemId,
+                'trackId': pbData.trackId,
+                'sourceType': pbData.sourceType.name,
+                'title': pbData.title,
+                'artist': pbData.artist,
+                'thumbnailUrl': pbData.thumbnailUrl,
+                'durationMs': pbData.durationMs,
+                'playedAt': ServerValue.timestamp,
+              });
+            } catch (_) {}
+          }
+
           final map = {
             'currentItemId': nextItem.id,
             'trackId': nextItem.trackId,
@@ -274,11 +292,29 @@ class QueueRepositoryImpl implements QueueRepository {
         }
       }
 
-      // Queue is empty: Autoplay from YouTube suggestions / playlist
-      final suggestion = YouTubeSuggestionPool.getNextAutoplayTrack(
+      // Record currently playing song in history before autoplay advances
+      if (pbData != null && pbData.hasTrack) {
+        try {
+          final histKey = DateTime.now().millisecondsSinceEpoch.toString();
+          await db.ref('rooms/$roomId/history/$histKey').set({
+            'currentItemId': pbData.currentItemId,
+            'trackId': pbData.trackId,
+            'sourceType': pbData.sourceType.name,
+            'title': pbData.title,
+            'artist': pbData.artist,
+            'thumbnailUrl': pbData.thumbnailUrl,
+            'durationMs': pbData.durationMs,
+            'playedAt': ServerValue.timestamp,
+          });
+        } catch (_) {}
+      }
+
+      // Queue is empty: Autoplay from YouTube / YouTube Music suggestions based on last played song
+      final suggestion = await YouTubeSuggestionPool.getNextAutoplayTrackAsync(
         currentTrackId: pbData?.trackId,
         currentArtist: pbData?.artist,
         currentTitle: pbData?.title,
+        sourceType: pbData?.sourceType ?? AudioSourceType.youtubeMusic,
       );
 
       if (suggestion != null) {
@@ -308,5 +344,95 @@ class QueueRepositoryImpl implements QueueRepository {
       // Gracefully handle if permission rules or network temporarily prevents write;
       // host or another controller member device will synchronize playback state.
     }
+  }
+
+  @override
+  Future<void> skipToPreviousSong(String roomId, [String? currentUid]) async {
+    final db = _db;
+    if (db == null) return;
+
+    try {
+      // 1. Fetch the most recent track from played history
+      final historySnap = await db
+          .ref('rooms/$roomId/history')
+          .orderByKey()
+          .limitToLast(1)
+          .get();
+
+      if (!historySnap.exists || historySnap.value == null) {
+        // No previous song in history: restart current song from 0:00
+        final currentPbSnap = await db.ref('rooms/$roomId/playback').get();
+        if (currentPbSnap.exists && currentPbSnap.value is Map) {
+          await db.ref('rooms/$roomId/playback').update({
+            'positionMs': 0,
+            'updatedAt': ServerValue.timestamp,
+            'updatedBy': currentUid ?? 'system',
+          });
+        }
+        return;
+      }
+
+      // 2. Extract last history item key and data
+      String? lastHistoryKey;
+      Map<dynamic, dynamic>? lastHistoryData;
+      final hVal = historySnap.value;
+      if (hVal is Map) {
+        lastHistoryKey = hVal.keys.first.toString();
+        lastHistoryData = hVal.values.first as Map<dynamic, dynamic>?;
+      } else if (hVal is List && hVal.isNotEmpty) {
+        lastHistoryKey = (hVal.length - 1).toString();
+        lastHistoryData = hVal.last as Map<dynamic, dynamic>?;
+      }
+
+      if (lastHistoryKey == null || lastHistoryData == null) {
+        return;
+      }
+
+      // 3. Remove this item from history so it doesn't loop
+      await db.ref('rooms/$roomId/history/$lastHistoryKey').remove();
+
+      // 4. Return currently playing song back to the top of queue
+      final currentPbSnap = await db.ref('rooms/$roomId/playback').get();
+      if (currentPbSnap.exists && currentPbSnap.value is Map) {
+        final curPb = PlaybackStateEntity.fromMap(currentPbSnap.value as Map);
+        if (curPb.hasTrack) {
+          final returnItem = QueueItemEntity(
+            id: 'prev_return_${DateTime.now().millisecondsSinceEpoch}',
+            trackId: curPb.trackId,
+            sourceType: curPb.sourceType,
+            title: curPb.title,
+            artist: curPb.artist,
+            thumbnailUrl: curPb.thumbnailUrl,
+            durationMs: curPb.durationMs,
+            addedBy: currentUid ?? 'system',
+            addedByName: 'Previous Track',
+            addedAt: DateTime.now(),
+            order: -100.0,
+          );
+          await db
+              .ref('rooms/$roomId/queue/${returnItem.id}')
+              .set(returnItem.toMap());
+        }
+      }
+
+      // 5. Restore previous track as currently playing
+      final prevPlaybackMap = {
+        'currentItemId': lastHistoryData['currentItemId'] ??
+            'hist_${DateTime.now().millisecondsSinceEpoch}',
+        'trackId': lastHistoryData['trackId'],
+        'sourceType': lastHistoryData['sourceType'] ?? 'youtube',
+        'title': lastHistoryData['title'] ?? 'Previous Track',
+        'artist': lastHistoryData['artist'] ?? 'YouTube',
+        'thumbnailUrl': lastHistoryData['thumbnailUrl'] ??
+            'https://img.youtube.com/vi/${lastHistoryData['trackId']}/hqdefault.jpg',
+        'durationMs': lastHistoryData['durationMs'] ?? 210000,
+        'status': 'playing',
+        'positionMs': 0,
+        'updatedAt': ServerValue.timestamp,
+        'updatedBy': currentUid ?? 'system',
+      };
+
+      await db.ref('rooms/$roomId/playback').set(prevPlaybackMap);
+    } catch (_) {}
   }
 }

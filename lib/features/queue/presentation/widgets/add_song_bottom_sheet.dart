@@ -6,6 +6,7 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../playback/presentation/widgets/youtube_hub_sheet.dart';
+import '../../../playback/presentation/widgets/youtube_music_hub_sheet.dart';
 import '../../../room/presentation/providers/room_providers.dart';
 import '../providers/queue_providers.dart';
 import '../../domain/services/song_search_service.dart';
@@ -151,79 +152,169 @@ class _AddSongBottomSheetState extends ConsumerState<AddSongBottomSheet> {
           ),
           const SizedBox(height: AppDimens.xs),
 
-          // YouTube Hub Explorer Card
+          // Dual Explorer Cards: YouTube & YouTube Music
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppDimens.lg),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () {
-                  final room =
-                      ref.read(currentRoomProvider(widget.roomId)).valueOrNull;
-                  if (room != null) {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => YouTubeHubSheet(room: room),
-                      ),
-                    );
-                  }
-                },
-                borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppDimens.md, vertical: 10),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.red.withValues(alpha: 0.2),
-                        AppColors.surfaceLight,
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-                    border: Border.all(
-                      color: Colors.red.withValues(alpha: 0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.smart_display_rounded,
-                            color: Colors.redAccent, size: 22),
-                      ),
-                      const SizedBox(width: AppDimens.sm + 2),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Open Full YouTube Hub',
-                              style: AppTypography.bodyMedium.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
-                              ),
+            child: Row(
+              children: [
+                // 1. YouTube Hub Card
+                Expanded(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        final room =
+                            ref.read(currentRoomProvider(widget.roomId)).valueOrNull;
+                        if (room != null) {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => YouTubeHubSheet(room: room),
                             ),
-                            Text(
-                              'Browse playlists, search live & pick any video',
-                              style: AppTypography.labelSmall
-                                  .copyWith(color: AppColors.textMuted),
+                          );
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 10),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.red.withValues(alpha: 0.18),
+                              AppColors.surfaceLight,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+                          border: Border.all(
+                            color: Colors.red.withValues(alpha: 0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.smart_display_rounded,
+                                  color: Colors.redAccent, size: 18),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'YouTube Hub',
+                                    style: AppTypography.bodySmall.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    'Videos & Sets',
+                                    style: AppTypography.labelSmall.copyWith(
+                                      color: AppColors.textMuted,
+                                      fontSize: 10,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      const Icon(Icons.arrow_forward_ios_rounded,
-                          size: 13, color: AppColors.textMuted),
-                    ],
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(width: AppDimens.sm),
+                // 2. YouTube Music Hub Card
+                Expanded(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        final room =
+                            ref.read(currentRoomProvider(widget.roomId)).valueOrNull;
+                        if (room != null) {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => YouTubeMusicHubSheet(room: room),
+                            ),
+                          );
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 10),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.red.withValues(alpha: 0.18),
+                              AppColors.surfaceLight,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+                          border: Border.all(
+                            color: Colors.redAccent.withValues(alpha: 0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.music_note_rounded,
+                                  color: Colors.redAccent, size: 18),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'YT Music Hub',
+                                    style: AppTypography.bodySmall.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    'Songs & Albums',
+                                    style: AppTypography.labelSmall.copyWith(
+                                      color: AppColors.textMuted,
+                                      fontSize: 10,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: AppDimens.md),

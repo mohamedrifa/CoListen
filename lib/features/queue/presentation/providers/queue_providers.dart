@@ -140,4 +140,12 @@ class QueueController extends StateNotifier<AsyncValue<void>> {
       state = AsyncValue.error(e, st);
     }
   }
+
+  Future<void> skipToPreviousSong(String roomId, [String? uid]) async {
+    try {
+      await _repo.skipToPreviousSong(roomId, uid);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
 }

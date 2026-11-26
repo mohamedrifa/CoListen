@@ -478,6 +478,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Add Song to Queue'), findsOneWidget);
+    expect(find.text('YouTube Hub'), findsOneWidget);
+    expect(find.text('YT Music Hub'), findsOneWidget);
     expect(find.text('TRENDING & CURATED PICKS'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
   });

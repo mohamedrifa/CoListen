@@ -93,10 +93,16 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
     };
     _mediaService?.onPreviousRequested = () {
       final uid = _currentUid;
-      if (uid != null) {
-        seek(Duration.zero, uid);
+      final currentPlayback = state.valueOrNull;
+      final pos = currentPlayback?.positionMs ?? 0;
+      if (pos > 3000) {
+        if (uid != null) {
+          seek(Duration.zero, uid);
+        } else {
+          _player.seek(Duration.zero);
+        }
       } else {
-        _player.seek(Duration.zero);
+        _queueRepo?.skipToPreviousSong(roomId, uid);
       }
     };
     _mediaService?.onStopLocalRequested = () {

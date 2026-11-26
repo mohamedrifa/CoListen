@@ -4,6 +4,7 @@ import 'package:colisten/features/playback/domain/services/player_service.dart';
 import 'package:colisten/features/queue/domain/entities/queue_item_entity.dart';
 import 'package:colisten/features/queue/domain/repositories/queue_repository.dart';
 import 'package:colisten/features/queue/domain/services/song_search_service.dart';
+import 'package:colisten/features/queue/domain/services/youtube_suggestion_pool.dart';
 import 'package:colisten/features/queue/presentation/providers/queue_providers.dart';
 
 class MockQueueRepository implements QueueRepository {
@@ -106,6 +107,15 @@ class MockQueueRepository implements QueueRepository {
       _controller.add(List.from(_items));
     }
   }
+
+  @override
+  Future<void> skipToPreviousSong(String roomId, [String? currentUid]) async {
+    if (_items.isNotEmpty) {
+      final last = _items.removeLast();
+      _items.insert(0, last);
+      _controller.add(List.from(_items));
+    }
+  }
 }
 
 void main() {
@@ -202,9 +212,43 @@ void main() {
         equals('dQw4w9WgXcQ'),
       );
       expect(
+        SongSearchService.extractYoutubeVideoId(
+            'https://music.youtube.com/watch?v=dQw4w9WgXcQ'),
+        equals('dQw4w9WgXcQ'),
+      );
+      expect(
         SongSearchService.extractYoutubeVideoId('https://google.com'),
         isNull,
       );
+    });
+
+    test('isYoutubeMusicUrl identifies music.youtube.com links', () {
+      expect(
+        SongSearchService.isYoutubeMusicUrl(
+            'https://music.youtube.com/watch?v=dQw4w9WgXcQ'),
+        isTrue,
+      );
+      expect(
+        SongSearchService.isYoutubeMusicUrl(
+            'https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
+        isFalse,
+      );
+    });
+
+    test('Direct YouTube Music URL paste returns result with AudioSourceType.youtubeMusic', () async {
+      final results = await searchService.search(
+          'https://music.youtube.com/watch?v=34Na4j8AVgA');
+      expect(results.length, equals(1));
+      expect(results.first.trackId, equals('34Na4j8AVgA'));
+      expect(results.first.sourceType, equals(AudioSourceType.youtubeMusic));
+      expect(results.first.sourceType.label, equals('YouTube Music'));
+    });
+
+    test('AudioSourceType.fromString handles YouTube Music variations', () {
+      expect(AudioSourceType.fromString('youtubeMusic'), equals(AudioSourceType.youtubeMusic));
+      expect(AudioSourceType.fromString('youtube_music'), equals(AudioSourceType.youtubeMusic));
+      expect(AudioSourceType.fromString('youtube'), equals(AudioSourceType.youtube));
+      expect(AudioSourceType.fromString(null), equals(AudioSourceType.youtube));
     });
 
     test('Direct YouTube URL paste returns single resolved result', () async {
@@ -223,6 +267,99 @@ void main() {
     test('Empty query returns curated picks list', () async {
       final results = await searchService.search('');
       expect(results.length, equals(SongSearchService.curatedPicks.length));
+    });
+  });
+
+  group('YouTubeSuggestionPool Tests', () {
+    setUp(() {
+      YouTubeSuggestionPool.clear();
+    });
+
+    test('updateSuggestions registers YouTube Music suggestions with correct source type', () {
+      YouTubeSuggestionPool.updateSuggestions([
+        {
+          'videoId': 'ytm_track_1',
+          'title': 'Starboy',
+          'artist': 'The Weeknd',
+        },
+        {
+          'videoId': 'ytm_track_2',
+          'title': 'Levitating',
+          'artist': 'Dua Lipa',
+        },
+      ], AudioSourceType.youtubeMusic);
+
+      final nextTrack = YouTubeSuggestionPool.getNextAutoplayTrack();
+      expect(nextTrack, isNotNull);
+      expect(nextTrack!.trackId, equals('ytm_track_1'));
+      expect(nextTrack.sourceType, equals(AudioSourceType.youtubeMusic));
+      expect(nextTrack.sourceType.label, equals('YouTube Music'));
+      expect(nextTrack.title, equals('Starboy'));
+      expect(nextTrack.artist, equals('The Weeknd'));
+
+      final secondTrack = YouTubeSuggestionPool.getNextAutoplayTrack(
+        currentTrackId: 'ytm_track_1',
+      );
+      expect(secondTrack, isNotNull);
+      expect(secondTrack!.trackId, equals('ytm_track_2'));
+      expect(secondTrack.sourceType, equals(AudioSourceType.youtubeMusic));
+    });
+
+    test('getNextAutoplayTrack falls back to curated picks when pool is empty', () {
+      final track = YouTubeSuggestionPool.getNextAutoplayTrack();
+      expect(track, isNotNull);
+      expect(track!.trackId.isNotEmpty, isTrue);
+    });
+
+    test('requestDynamicSuggestions dispatches to registered suggestionRequestHandler', () {
+      String? requestedId;
+      String? requestedArtist;
+      AudioSourceType? requestedSource;
+
+      YouTubeSuggestionPool.suggestionRequestHandler = (id, title, artist, source) {
+        requestedId = id;
+        requestedArtist = artist;
+        requestedSource = source;
+      };
+
+      YouTubeSuggestionPool.requestDynamicSuggestions(
+        trackId: 'last_played_123',
+        title: 'Starboy',
+        artist: 'The Weeknd',
+        sourceType: AudioSourceType.youtubeMusic,
+      );
+
+      expect(requestedId, equals('last_played_123'));
+      expect(requestedArtist, equals('The Weeknd'));
+      expect(requestedSource, equals(AudioSourceType.youtubeMusic));
+
+      YouTubeSuggestionPool.suggestionRequestHandler = null;
+    });
+
+    test('getNextAutoplayTrack prioritizes tracks matching last played artist', () {
+      YouTubeSuggestionPool.updateSuggestions([
+        {
+          'videoId': 'general_1',
+          'title': 'Random Track',
+          'artist': 'Someone Else',
+        },
+        {
+          'videoId': 'artist_match_1',
+          'title': 'Save Your Tears',
+          'artist': 'The Weeknd',
+        },
+      ], AudioSourceType.youtubeMusic);
+
+      final nextTrack = YouTubeSuggestionPool.getNextAutoplayTrack(
+        currentTrackId: 'last_played_123',
+        currentArtist: 'The Weeknd',
+        currentTitle: 'Starboy',
+        sourceType: AudioSourceType.youtubeMusic,
+      );
+
+      expect(nextTrack, isNotNull);
+      expect(nextTrack!.trackId, equals('artist_match_1'));
+      expect(nextTrack.artist, equals('The Weeknd'));
     });
   });
 
@@ -365,6 +502,37 @@ void main() {
       expect(mockRepo._items.first.id, equals('song_b'));
       expect(mockRepo._items.first.upvoteCount, equals(1));
       expect(mockRepo._items[1].id, equals('song_a'));
+    });
+
+    test('skipToPreviousSong delegates to repository', () async {
+      final songA = QueueItemEntity(
+        id: 'song_a',
+        trackId: 'ta',
+        title: 'Song A',
+        artist: 'Artist',
+        thumbnailUrl: '',
+        durationMs: 180000,
+        addedBy: 'u1',
+        addedByName: 'Alex',
+        addedAt: DateTime.now(),
+        order: 1.0,
+      );
+      final songB = QueueItemEntity(
+        id: 'song_b',
+        trackId: 'tb',
+        title: 'Song B',
+        artist: 'Artist',
+        thumbnailUrl: '',
+        durationMs: 180000,
+        addedBy: 'u2',
+        addedByName: 'Sam',
+        addedAt: DateTime.now(),
+        order: 2.0,
+      );
+
+      mockRepo.emitQueue([songA, songB]);
+      await controller.skipToPreviousSong('room_1', 'user_1');
+      expect(mockRepo._items.first.id, equals('song_b'));
     });
   });
 }

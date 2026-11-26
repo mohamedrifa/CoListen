@@ -1,7 +1,7 @@
 class AppConstants {
   static const String appName = 'CoListen';
   static const String appTagline = 'Hear what your friends hear.';
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '1.0.1';
   static const int appBuildNumber = 1;
   static const int roomCodeLength = 6;
   static const String roomCodeCharset = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';

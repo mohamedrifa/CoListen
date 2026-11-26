@@ -7,6 +7,7 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../queue/domain/services/youtube_suggestion_pool.dart';
 import '../../../queue/presentation/providers/queue_providers.dart';
 import '../../../queue/presentation/widgets/queue_bottom_sheet.dart';
 import '../../data/services/youtube_iframe_player_service.dart';
@@ -18,10 +19,12 @@ import '../providers/playback_sync_provider.dart';
 import 'playback_controls_row.dart';
 import 'waveform_scrubber.dart';
 import 'youtube_hub_sheet.dart';
+import 'youtube_music_hub_sheet.dart';
 
 enum NowPlayingMode {
   player,
   youtubeHub,
+  youtubeMusicHub,
 }
 
 class NowPlayingView extends ConsumerStatefulWidget {
@@ -47,15 +50,50 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
       GlobalKey(debugLabel: 'youtube_player_global_stable');
   NowPlayingMode _mode = NowPlayingMode.player;
   bool _hubEverOpened = false;
+  bool _musicHubEverOpened = false;
+  final GlobalKey<YouTubeHubSheetState> _youtubeHubKey =
+      GlobalKey<YouTubeHubSheetState>();
+  final GlobalKey<YouTubeMusicHubSheetState> _youtubeMusicHubKey =
+      GlobalKey<YouTubeMusicHubSheetState>();
+
+  @override
+  void initState() {
+    super.initState();
+    YouTubeSuggestionPool.suggestionRequestHandler =
+        (trackId, title, artist, sourceType) {
+      if (mounted) {
+        if (sourceType == AudioSourceType.youtubeMusic && !_musicHubEverOpened) {
+          setState(() => _musicHubEverOpened = true);
+        } else if (sourceType == AudioSourceType.youtube && !_hubEverOpened) {
+          setState(() => _hubEverOpened = true);
+        }
+      }
+      if (sourceType == AudioSourceType.youtubeMusic) {
+        _youtubeMusicHubKey.currentState
+            ?.fetchSuggestionsFor(trackId, title, artist);
+      } else {
+        _youtubeHubKey.currentState
+            ?.fetchSuggestionsFor(trackId, title, artist);
+      }
+    };
+  }
+
+  @override
+  void dispose() {
+    YouTubeSuggestionPool.suggestionRequestHandler = null;
+    super.dispose();
+  }
 
   void _setMode(NowPlayingMode mode) {
     setState(() {
       _mode = mode;
       if (mode == NowPlayingMode.youtubeHub) {
         _hubEverOpened = true;
+      } else if (mode == NowPlayingMode.youtubeMusicHub) {
+        _musicHubEverOpened = true;
       }
     });
-    widget.onHubModeChanged?.call(mode == NowPlayingMode.youtubeHub);
+    widget.onHubModeChanged?.call(mode != NowPlayingMode.player);
   }
 
   Widget _buildModeSelector() {
@@ -68,24 +106,36 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
           borderRadius: BorderRadius.circular(AppDimens.radiusFull),
           border: Border.all(color: AppColors.glassBorder),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _ModeChip(
-              icon: Icons.play_circle_filled_rounded,
-              label: 'App Player',
-              isSelected: _mode == NowPlayingMode.player,
-              onTap: () => _setMode(NowPlayingMode.player),
-            ),
-            const SizedBox(width: 4),
-            _ModeChip(
-              icon: Icons.smart_display_rounded,
-              iconColor: Colors.red,
-              label: 'YouTube Hub',
-              isSelected: _mode == NowPlayingMode.youtubeHub,
-              onTap: () => _setMode(NowPlayingMode.youtubeHub),
-            ),
-          ],
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ModeChip(
+                icon: Icons.play_circle_filled_rounded,
+                label: 'Player',
+                isSelected: _mode == NowPlayingMode.player,
+                onTap: () => _setMode(NowPlayingMode.player),
+              ),
+              const SizedBox(width: 4),
+              _ModeChip(
+                icon: Icons.smart_display_rounded,
+                iconColor: Colors.red,
+                label: 'YouTube',
+                isSelected: _mode == NowPlayingMode.youtubeHub,
+                onTap: () => _setMode(NowPlayingMode.youtubeHub),
+              ),
+              const SizedBox(width: 4),
+              _ModeChip(
+                icon: Icons.music_note_rounded,
+                iconColor: Colors.redAccent,
+                label: 'YT Music',
+                isSelected: _mode == NowPlayingMode.youtubeMusicHub,
+                onTap: () => _setMode(NowPlayingMode.youtubeMusicHub),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -166,10 +216,35 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(AppDimens.radiusMd),
                         child: YouTubeHubSheet(
+                          key: _youtubeHubKey,
                           room: room,
                           isEmbedded: true,
                           initialVideoId: playback?.hasTrack == true ? playback!.trackId : null,
                           onSwitchToAppPlayer: () => _setMode(NowPlayingMode.player),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Layer 2: YouTube Music Hub View (Lazily created on first open, then kept mounted to preserve search & login state)
+            if (room != null && _musicHubEverOpened)
+              Offstage(
+                offstage: _mode != NowPlayingMode.youtubeMusicHub,
+                child: Column(
+                  children: [
+                    if (!isKeyboardOpen) _buildModeSelector(),
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                        child: YouTubeMusicHubSheet(
+                          key: _youtubeMusicHubKey,
+                          room: room,
+                          isEmbedded: true,
+                          initialVideoId: null,
+                          onSwitchToAppPlayer: () =>
+                              _setMode(NowPlayingMode.player),
                         ),
                       ),
                     ),
@@ -462,10 +537,23 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.smart_display, size: 12, color: Colors.red),
+                                Icon(
+                                  playback.sourceType ==
+                                          AudioSourceType.youtubeMusic
+                                      ? Icons.music_note_rounded
+                                      : Icons.smart_display,
+                                  size: 12,
+                                  color: playback.sourceType ==
+                                          AudioSourceType.youtubeMusic
+                                      ? Colors.redAccent
+                                      : Colors.red,
+                                ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  'YouTube Stream',
+                                  playback.sourceType ==
+                                          AudioSourceType.youtubeMusic
+                                      ? 'YouTube Music'
+                                      : 'YouTube Stream',
                                   style: AppTypography.labelSmall.copyWith(
                                     color: AppColors.textPrimary,
                                     fontWeight: FontWeight.bold,
@@ -606,12 +694,35 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
                   },
                   onNext: widget.canControl
                       ? () {
+                          // Fetch login-related suggestions based on the last played song
+                          if (playback.hasTrack) {
+                            YouTubeSuggestionPool.requestDynamicSuggestions(
+                              trackId: playback.trackId,
+                              title: playback.title,
+                              artist: playback.artist,
+                              sourceType: playback.sourceType,
+                            );
+                          }
                           ref
                               .read(queueControllerProvider.notifier)
                               .skipToNextSong(widget.roomId, user?.uid);
                         }
                       : null,
-                  onPrevious: () {},
+                  onPrevious: widget.canControl
+                      ? () {
+                          final currentPos = playback.positionMs;
+                          final notifier = ref.read(
+                              playbackSyncNotifierProvider(widget.roomId)
+                                  .notifier);
+                          if (currentPos > 3000) {
+                            notifier.seek(Duration.zero, user?.uid ?? '');
+                          } else {
+                            ref
+                                .read(queueControllerProvider.notifier)
+                                .skipToPreviousSong(widget.roomId, user?.uid);
+                          }
+                        }
+                      : null,
                   onQueueTap: room != null
                       ? () {
                           showModalBottomSheet(
@@ -651,10 +762,11 @@ class _ModeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
         decoration: BoxDecoration(
           gradient: isSelected ? AppColors.primaryGradient : null,
           color: isSelected ? null : Colors.transparent,

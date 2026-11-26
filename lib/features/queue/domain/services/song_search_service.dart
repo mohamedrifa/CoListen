@@ -122,13 +122,29 @@ class SongSearchService {
       thumbnailUrl: 'https://img.youtube.com/vi/YQHsXMglC9A/hqdefault.jpg',
       durationMs: 367000,
     ),
+    SearchTrackResult(
+      trackId: '34Na4j8AVgA',
+      sourceType: AudioSourceType.youtubeMusic,
+      title: 'Starboy',
+      artist: 'The Weeknd ft. Daft Punk',
+      thumbnailUrl: 'https://img.youtube.com/vi/34Na4j8AVgA/hqdefault.jpg',
+      durationMs: 230000,
+    ),
+    SearchTrackResult(
+      trackId: 'TUVcZfQe-Kw',
+      sourceType: AudioSourceType.youtubeMusic,
+      title: 'Levitating',
+      artist: 'Dua Lipa',
+      thumbnailUrl: 'https://img.youtube.com/vi/TUVcZfQe-Kw/hqdefault.jpg',
+      durationMs: 203000,
+    ),
   ];
 
   static String? extractYoutubeVideoId(String url) {
     final cleanUrl = url.trim();
-    // Match youtube.com/watch?v=VIDEO_ID or youtu.be/VIDEO_ID
+    // Match youtube.com/watch?v=VIDEO_ID or youtu.be/VIDEO_ID or music.youtube.com/watch?v=VIDEO_ID
     final regExp = RegExp(
-      r'(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})',
+      r'(?:https?:\/\/)?(?:www\.|m\.|music\.)?(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})',
       caseSensitive: false,
     );
     final match = regExp.firstMatch(cleanUrl);
@@ -138,21 +154,31 @@ class SongSearchService {
     return null;
   }
 
+  static bool isYoutubeMusicUrl(String url) {
+    final lower = url.trim().toLowerCase();
+    return lower.contains('music.youtube.com');
+  }
+
   Future<List<SearchTrackResult>> search(String query) async {
     final trimmed = query.trim();
     if (trimmed.isEmpty) {
       return curatedPicks;
     }
 
-    // 1. Check if direct YouTube URL was pasted
+    // 1. Check if direct YouTube or YouTube Music URL was pasted
     final directId = extractYoutubeVideoId(trimmed);
     if (directId != null) {
+      final isYtMusic = isYoutubeMusicUrl(trimmed);
       return [
         SearchTrackResult(
           trackId: directId,
-          sourceType: AudioSourceType.youtube,
-          title: 'YouTube Track ($directId)',
-          artist: 'Direct YouTube Link',
+          sourceType: isYtMusic
+              ? AudioSourceType.youtubeMusic
+              : AudioSourceType.youtube,
+          title: isYtMusic
+              ? 'YouTube Music Track ($directId)'
+              : 'YouTube Track ($directId)',
+          artist: isYtMusic ? 'YouTube Music' : 'Direct YouTube Link',
           thumbnailUrl: 'https://img.youtube.com/vi/$directId/hqdefault.jpg',
           durationMs: 210000,
         ),

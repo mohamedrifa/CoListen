@@ -34,4 +34,6 @@ abstract class QueueRepository {
   });
 
   Future<void> skipToNextSong(String roomId, [String? currentUid]);
+
+  Future<void> skipToPreviousSong(String roomId, [String? currentUid]);
 }

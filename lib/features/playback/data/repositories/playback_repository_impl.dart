@@ -19,6 +19,27 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
 
   @override
   Future<void> updatePlayback(String roomId, PlaybackStateEntity state) async {
+    try {
+      final currentSnap = await _database.ref('rooms/$roomId/playback').get();
+      if (currentSnap.exists && currentSnap.value is Map) {
+        final currentPb = PlaybackStateEntity.fromMap(currentSnap.value as Map);
+        if (currentPb.hasTrack &&
+            currentPb.trackId != state.trackId &&
+            state.hasTrack) {
+          final histKey = DateTime.now().millisecondsSinceEpoch.toString();
+          await _database.ref('rooms/$roomId/history/$histKey').set({
+            'currentItemId': currentPb.currentItemId,
+            'trackId': currentPb.trackId,
+            'sourceType': currentPb.sourceType.name,
+            'title': currentPb.title,
+            'artist': currentPb.artist,
+            'thumbnailUrl': currentPb.thumbnailUrl,
+            'durationMs': currentPb.durationMs,
+            'playedAt': ServerValue.timestamp,
+          });
+        }
+      }
+    } catch (_) {}
     await _database.ref('rooms/$roomId/playback').update(state.toMap());
   }
 

@@ -1,16 +1,25 @@
 import 'dart:async';
 
 enum AudioSourceType {
-  youtube;
+  youtube,
+  youtubeMusic;
 
   String get label {
     switch (this) {
       case AudioSourceType.youtube:
         return 'YouTube';
+      case AudioSourceType.youtubeMusic:
+        return 'YouTube Music';
     }
   }
 
   static AudioSourceType fromString(String? type) {
+    if (type == 'youtubeMusic' ||
+        type == 'youtube_music' ||
+        type == 'yt_music' ||
+        type == 'ytmusic') {
+      return AudioSourceType.youtubeMusic;
+    }
     return AudioSourceType.youtube;
   }
 }

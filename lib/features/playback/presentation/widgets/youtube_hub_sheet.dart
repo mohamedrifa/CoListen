@@ -30,10 +30,10 @@ class YouTubeHubSheet extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<YouTubeHubSheet> createState() => _YouTubeHubSheetState();
+  ConsumerState<YouTubeHubSheet> createState() => YouTubeHubSheetState();
 }
 
-class _YouTubeHubSheetState extends ConsumerState<YouTubeHubSheet> {
+class YouTubeHubSheetState extends ConsumerState<YouTubeHubSheet> {
   late final WebViewController _controller;
   bool _isLoading = true;
   String? _detectedVideoId;
@@ -41,13 +41,64 @@ class _YouTubeHubSheetState extends ConsumerState<YouTubeHubSheet> {
   bool _canGoBack = false;
   bool _canGoForward = false;
 
+  /// Dynamically queries YouTube's logged-in recommendation API and watch feed
+  /// for next songs based on the specified last played track.
+  void fetchSuggestionsFor(String videoId, String title, String artist) {
+    if (WebViewPlatform.instance == null) return;
+    try {
+      final safeArtist = artist.replaceAll("'", r"\'").replaceAll('"', r'\"');
+      _controller.runJavaScript('''
+        (function() {
+          try {
+            const key = (window.ytcfg && window.ytcfg.data_ && window.ytcfg.data_.INNERTUBE_API_KEY) || '';
+            const ctx = (window.ytcfg && window.ytcfg.data_ && window.ytcfg.data_.INNERTUBE_CONTEXT) || {};
+            if (key && ctx) {
+              fetch('/youtubei/v1/next?key=' + key, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ context: ctx, videoId: '$videoId' })
+              })
+              .then(r => r.json())
+              .then(d => {
+                const list = [];
+                try {
+                  const items = d?.contents?.singleColumnWatchNextResults?.results?.results?.contents || [];
+                  items.forEach(it => {
+                    const v = it.compactVideoRenderer || it.videoWithContextRenderer;
+                    if (v && v.videoId && v.videoId !== '$videoId') {
+                      const t = v.title?.runs?.[0]?.text || v.headline?.runs?.[0]?.text || '';
+                      const a = v.shortBylineText?.runs?.[0]?.text || '$safeArtist';
+                      if (t) list.push({ videoId: v.videoId, title: t, artist: a });
+                    }
+                  });
+                } catch(e) {}
+                if (list.length > 0 && window.CoListenBridge) {
+                  window.CoListenBridge.postMessage(JSON.stringify({
+                    type: 'SUGGESTIONS_EXTRACTED',
+                    items: list.slice(0, 15)
+                  }));
+                }
+              }).catch(function(){});
+            }
+          } catch(e) {}
+
+          if (typeof extractAutoplaySuggestions === 'function') {
+            extractAutoplaySuggestions();
+          }
+        })();
+      ''');
+    } catch (_) {}
+  }
+
   static const String _mobileUserAgent =
       'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36';
 
   @override
   void initState() {
     super.initState();
-    _initWebViewController();
+    if (WebViewPlatform.instance != null) {
+      _initWebViewController();
+    }
   }
 
   void _initWebViewController() {
@@ -729,6 +780,9 @@ class _YouTubeHubSheetState extends ConsumerState<YouTubeHubSheet> {
 
   @override
   Widget build(BuildContext context) {
+    if (WebViewPlatform.instance == null) {
+      return const SizedBox.shrink();
+    }
     final currentUser = ref.watch(authStateProvider).valueOrNull;
     final canControl = currentUser != null && widget.room.canChangeSongs(currentUser.uid);
     final canAdd = currentUser != null && widget.room.canAddSongs(currentUser.uid);
