@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/services/background_media_service.dart';
 import '../../../../core/sync/server_clock.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../queue/domain/repositories/queue_repository.dart';
@@ -29,7 +30,16 @@ final playbackSyncNotifierProvider = StateNotifierProvider.autoDispose.family<
     final repo = ref.watch(playbackRepositoryProvider);
     final queueRepo = ref.watch(queueRepositoryProvider);
     final authUser = ref.watch(authStateProvider).valueOrNull;
-    return PlaybackSyncNotifier(roomId, player, clock, repo, queueRepo, authUser?.uid);
+    final mediaService = ref.watch(backgroundMediaServiceProvider);
+    return PlaybackSyncNotifier(
+      roomId,
+      player,
+      clock,
+      repo,
+      queueRepo,
+      authUser?.uid,
+      mediaService,
+    );
   },
 );
 
@@ -40,6 +50,7 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
   final PlaybackRepository _repo;
   final QueueRepository? _queueRepo;
   final String? _currentUid;
+  final BackgroundMediaService? _mediaService;
 
   StreamSubscription? _remoteSubscription;
   StreamSubscription? _statusSubscription;
@@ -54,11 +65,43 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
     this._repo, [
     this._queueRepo,
     this._currentUid,
+    this._mediaService,
   ]) : super(const AsyncValue.loading()) {
     _initSync();
   }
 
   void _initSync() {
+    _mediaService?.onPlayRequested = () {
+      final uid = _currentUid;
+      if (uid != null) {
+        play(uid);
+      }
+    };
+    _mediaService?.onPauseRequested = () {
+      final uid = _currentUid;
+      if (uid != null) {
+        pause(uid);
+      }
+    };
+    _mediaService?.onNextRequested = () {
+      final qRepo = _queueRepo;
+      if (qRepo != null) {
+        qRepo.skipToNextSong(roomId, _currentUid);
+      }
+    };
+    _mediaService?.onPreviousRequested = () {
+      final uid = _currentUid;
+      if (uid != null) {
+        seek(Duration.zero, uid);
+      } else {
+        _player.seek(Duration.zero);
+      }
+    };
+    _mediaService?.onStopLocalRequested = () {
+      // User dismissed notification or clicked stop: pause local audio only
+      _player.pause();
+    };
+
     _remoteSubscription = _repo.watchPlaybackState(roomId).listen(
       (remoteState) async {
         if (_isDisposed) return;
@@ -77,6 +120,25 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
     // Auto-advance queue when track ends naturally or fails with embedding error (Req 15)
     _statusSubscription = _player.statusStream.listen((status) async {
       if (_isDisposed) return;
+      final current = state.valueOrNull;
+      if (current != null && current.hasTrack) {
+        final title = current.title.isNotEmpty ? current.title : 'CoListen Track';
+        final artist = current.artist.isNotEmpty ? current.artist : 'Room Playback';
+        if (status == PlayerStatus.playing) {
+          _mediaService?.updateState(
+            title: title,
+            artist: artist,
+            isPlaying: true,
+          );
+        } else if (status == PlayerStatus.paused) {
+          _mediaService?.updateState(
+            title: title,
+            artist: artist,
+            isPlaying: false,
+          );
+        }
+      }
+
       if (status == PlayerStatus.ended && _queueRepo != null) {
         try {
           await _queueRepo.skipToNextSong(roomId, _currentUid);
@@ -99,6 +161,27 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
   Future<void> _applyRemoteState(PlaybackStateEntity remote) async {
     final serverNow = _clock.currentServerTime;
     final targetPosition = remote.computeExpectedPosition(serverNow);
+
+    // Update Android Media Foreground Service for background and recents playback
+    if (remote.hasTrack) {
+      final title = remote.title.isNotEmpty ? remote.title : 'CoListen Track';
+      final artist = remote.artist.isNotEmpty ? remote.artist : 'Room Playback';
+      if (remote.isPlaying) {
+        _mediaService?.startForeground(
+          title: title,
+          artist: artist,
+          isPlaying: true,
+        );
+      } else {
+        _mediaService?.updateState(
+          title: title,
+          artist: artist,
+          isPlaying: false,
+        );
+      }
+    } else {
+      _mediaService?.stopForeground();
+    }
 
     // If new track or not loaded
     if (_player.currentTrackId != remote.trackId && remote.hasTrack) {
@@ -187,9 +270,13 @@ class PlaybackSyncNotifier extends StateNotifier<AsyncValue<PlaybackStateEntity?
   @override
   void dispose() {
     _isDisposed = true;
+    _mediaService?.onPlayRequested = null;
+    _mediaService?.onPauseRequested = null;
+    _mediaService?.onNextRequested = null;
     _remoteSubscription?.cancel();
     _statusSubscription?.cancel();
     _driftTimer?.cancel();
+    _mediaService?.stopForeground();
     super.dispose();
   }
 }

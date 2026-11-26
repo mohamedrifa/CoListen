@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import '../../../../core/services/background_media_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -24,12 +25,14 @@ enum NowPlayingMode {
 class NowPlayingView extends ConsumerStatefulWidget {
   final String roomId;
   final bool canControl;
+  final bool isPipMode;
   final void Function(bool isHub)? onHubModeChanged;
 
   const NowPlayingView({
     super.key,
     required this.roomId,
     required this.canControl,
+    this.isPipMode = false,
     this.onHubModeChanged,
   });
 
@@ -38,6 +41,8 @@ class NowPlayingView extends ConsumerStatefulWidget {
 }
 
 class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
+  static final GlobalKey _youtubePlayerGlobalKey =
+      GlobalKey(debugLabel: 'youtube_player_global_stable');
   NowPlayingMode _mode = NowPlayingMode.player;
   bool _hubEverOpened = false;
 
@@ -90,6 +95,49 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
     final player = ref.watch(playerServiceProvider);
     final user = ref.watch(authStateProvider).valueOrNull;
     final room = ref.watch(currentRoomProvider(widget.roomId)).valueOrNull;
+    final mq = MediaQuery.of(context);
+    final isPip = widget.isPipMode ||
+        ref.watch(pipModeProvider) ||
+        (mq.size.height < 500 && mq.size.width < 500) ||
+        (mq.size.height < 360) ||
+        (mq.size.aspectRatio > 1.3 && mq.size.height < 450);
+
+    // Fast-path: When in Picture-in-Picture mode, display solely the 16:9 video stream
+    if (isPip) {
+      final isYoutubePlayer = player is YoutubeIframePlayerService;
+      if (isYoutubePlayer) {
+        return Container(
+          color: Colors.black,
+          alignment: Alignment.center,
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: YoutubePlayer(
+              key: _youtubePlayerGlobalKey,
+              controller: player.controller,
+            ),
+          ),
+        );
+      }
+      final playback = playbackAsync.valueOrNull;
+      return Container(
+        color: Colors.black,
+        alignment: Alignment.center,
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: (playback != null && playback.hasTrack)
+              ? Image.network(
+                  playback.thumbnailUrl.isNotEmpty
+                      ? playback.thumbnailUrl
+                      : 'https://img.youtube.com/vi/${playback.trackId}/hqdefault.jpg',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const ColoredBox(color: Colors.black),
+                )
+              : const ColoredBox(color: Colors.black),
+        ),
+      );
+    }
+
     final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
     return playbackAsync.when(
@@ -205,6 +253,88 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
     final duration = Duration(milliseconds: playback.durationMs);
     final isYoutubePlayer = player is YoutubeIframePlayerService;
 
+    final mq = MediaQuery.of(context);
+    final isPip = widget.isPipMode ||
+        ref.watch(pipModeProvider) ||
+        (mq.size.height < 500 && mq.size.width < 500) ||
+        (mq.size.height < 360);
+
+    if (isPip) {
+      if (isYoutubePlayer) {
+        return Container(
+          color: Colors.black,
+          alignment: Alignment.center,
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: YoutubePlayer(
+              key: _youtubePlayerGlobalKey,
+              controller: player.controller,
+            ),
+          ),
+        );
+      }
+      return Container(
+        color: Colors.black,
+        alignment: Alignment.center,
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (playback.thumbnailUrl.isNotEmpty || playback.trackId.isNotEmpty)
+                Image.network(
+                  playback.thumbnailUrl.isNotEmpty
+                      ? playback.thumbnailUrl
+                      : 'https://img.youtube.com/vi/${playback.trackId}/hqdefault.jpg',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const ColoredBox(color: Colors.black),
+                ),
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black87],
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 8,
+                left: 12,
+                right: 12,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      playback.title.isEmpty ? 'CoListen' : playback.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      playback.artist.isEmpty ? 'Playing' : playback.artist,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 10,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return StreamBuilder<Duration>(
       stream: player.positionStream,
       initialData: player.currentPosition,
@@ -242,7 +372,7 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
                       child: AspectRatio(
                         aspectRatio: 16 / 9,
                         child: YoutubePlayer(
-                          key: const ValueKey('youtube_player_stable'),
+                          key: _youtubePlayerGlobalKey,
                           controller: player.controller,
                         ),
                       ),
@@ -250,14 +380,38 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
                   )
                 else
                   Container(
-                    width: 220,
-                    height: 140,
+                    margin: const EdgeInsets.symmetric(horizontal: AppDimens.sm),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceHighlight,
                       borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.35),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.25),
+                          blurRadius: 24,
+                          spreadRadius: 2,
+                        ),
+                      ],
                     ),
-                    child: const Center(
-                      child: Icon(Icons.music_video_rounded, size: 48, color: AppColors.primary),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(AppDimens.radiusLg - 1.5),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: Image.network(
+                          playback.thumbnailUrl.isNotEmpty
+                              ? playback.thumbnailUrl
+                              : 'https://img.youtube.com/vi/${playback.trackId}/hqdefault.jpg',
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: AppColors.surfaceHighlight,
+                            child: const Center(
+                              child: Icon(Icons.music_note_rounded, size: 56, color: AppColors.primary),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 const SizedBox(height: AppDimens.md),
@@ -285,8 +439,11 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
                       const SizedBox(height: AppDimens.sm),
 
                       // Source & Ad-Block Badge
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: AppDimens.xs,
+                        runSpacing: AppDimens.xs,
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -311,7 +468,6 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
                               ],
                             ),
                           ),
-                          const SizedBox(width: AppDimens.xs),
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 3),
@@ -337,8 +493,7 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
                               ],
                             ),
                           ),
-                          if (playback.updatedBy == 'youtube_autoplay') ...[
-                            const SizedBox(width: AppDimens.xs),
+                          if (playback.updatedBy == 'youtube_autoplay')
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 3),
@@ -364,7 +519,6 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> {
                                 ],
                               ),
                             ),
-                          ],
                         ],
                       ),
                       if (player.currentStatus == PlayerStatus.error) ...[

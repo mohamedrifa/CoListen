@@ -183,6 +183,8 @@ class YoutubeIframePlayerService implements PlayerService {
         (function() {
           if (window._bgPlaybackInjected) return;
           window._bgPlaybackInjected = true;
+          window._bgPlaybackActive = true;
+          window._intentionalPause = false;
 
           // 1. Spoof visibility properties so YouTube never treats the document as hidden
           try {
@@ -194,16 +196,54 @@ class YoutubeIframePlayerService implements PlayerService {
             });
           } catch(e) {}
 
-          // 2. Suppress visibilitychange events so YouTube does not pause on backgrounding
-          window.addEventListener('visibilitychange', function(e) {
-            e.stopImmediatePropagation();
-          }, true);
+          // 2. Spoof document.hasFocus so player never detects window blur or focus loss in Recents
+          try {
+            document.hasFocus = function() { return true; };
+          } catch(e) {}
 
-          document.addEventListener('visibilitychange', function(e) {
-            e.stopImmediatePropagation();
-          }, true);
+          // 3. Suppress blur, focusout, pagehide, and visibilitychange events
+          ['blur', 'focusout', 'pagehide', 'visibilitychange'].forEach(function(evt) {
+            window.addEventListener(evt, function(e) {
+              e.stopImmediatePropagation();
+            }, true);
+            document.addEventListener(evt, function(e) {
+              e.stopImmediatePropagation();
+            }, true);
+          });
 
-          // 3. Continuous End-of-Track Watcher & HTML5 Ended Event Binding
+          // 4. Protect <video> element from automatic pause when backgrounded
+          function bindVideoProtection() {
+            var v = document.querySelector('video');
+            if (v && !v._bgProtected) {
+              v._bgProtected = true;
+              v.addEventListener('pause', function(e) {
+                // If pause was triggered by Android recents/blur/screen-off rather than user action, resume immediately
+                if (!window._intentionalPause && window._bgPlaybackActive) {
+                  try { v.play(); } catch(err) {}
+                  Promise.resolve().then(function() {
+                    try { v.play(); } catch(err) {}
+                  });
+                  setTimeout(function() {
+                    try { v.play(); } catch(err) {}
+                  }, 50);
+                }
+              });
+            }
+          }
+          bindVideoProtection();
+          setInterval(bindVideoProtection, 1000);
+
+          // Continuous watchdog: auto-recover if paused unexpectedly during screen lock
+          setInterval(function() {
+            if (!window._intentionalPause && window._bgPlaybackActive) {
+              var v = document.querySelector('video');
+              if (v && v.paused && !v.ended && v.currentTime > 0) {
+                try { v.play(); } catch(e) {}
+              }
+            }
+          }, 1000);
+
+          // 5. Continuous End-of-Track Watcher & HTML5 Ended Event Binding
           setInterval(function() {
             try {
               if (typeof player !== 'undefined' && player && typeof player.getCurrentTime === 'function') {
@@ -245,6 +285,11 @@ class YoutubeIframePlayerService implements PlayerService {
     _cachedDurationSec = 0.0;
 
     try {
+      // ignore: invalid_use_of_internal_member
+      controller.webViewController.runJavaScript('window._intentionalPause = false; window._bgPlaybackActive = true;');
+    } catch (_) {}
+
+    try {
       if (autoPlay) {
         await controller.loadVideoById(
           videoId: trackId,
@@ -264,6 +309,10 @@ class YoutubeIframePlayerService implements PlayerService {
   @override
   Future<void> play() async {
     try {
+      // ignore: invalid_use_of_internal_member
+      controller.webViewController.runJavaScript('window._intentionalPause = false; window._bgPlaybackActive = true;');
+    } catch (_) {}
+    try {
       await controller.playVideo();
     } catch (_) {
       // Ignore if webview is currently loading
@@ -272,6 +321,10 @@ class YoutubeIframePlayerService implements PlayerService {
 
   @override
   Future<void> pause() async {
+    try {
+      // ignore: invalid_use_of_internal_member
+      controller.webViewController.runJavaScript('window._intentionalPause = true;');
+    } catch (_) {}
     try {
       await controller.pauseVideo();
     } catch (_) {
@@ -316,7 +369,7 @@ class YoutubeIframePlayerService implements PlayerService {
   String? get currentTrackId => _trackId;
 
   @override
-  bool get isBackgroundPlaySupported => false;
+  bool get isBackgroundPlaySupported => true;
 
   @override
   Stream<Duration> get positionStream => _positionController.stream;

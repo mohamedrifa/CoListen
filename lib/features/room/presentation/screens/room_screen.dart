@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/services/background_media_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -27,15 +28,20 @@ class RoomScreen extends ConsumerStatefulWidget {
   ConsumerState<RoomScreen> createState() => _RoomScreenState();
 }
 
-class _RoomScreenState extends ConsumerState<RoomScreen> {
+class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObserver {
   late final PresenceService _presenceService;
+  late final BackgroundMediaService _mediaService;
   bool _isYouTubeHubMode = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _presenceService = ref.read(presenceServiceProvider);
+    _mediaService = ref.read(backgroundMediaServiceProvider);
+    _mediaService.checkPipMode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _mediaService.checkPipMode();
       final user = ref.read(authStateProvider).valueOrNull;
       if (user != null) {
         _presenceService.startHeartbeat(
@@ -54,8 +60,24 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _presenceService.stopHeartbeat();
+    _mediaService.stopForeground();
     super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    _mediaService.checkPipMode();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed || state == AppLifecycleState.inactive) {
+      _mediaService.checkPipMode();
+    }
   }
 
   void _copyRoomLink(String code, [String? name]) {
@@ -106,8 +128,25 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final isPip = ref.watch(pipModeProvider) ||
+        (mq.size.height < 500 && mq.size.width < 500) ||
+        (mq.size.height < 360) ||
+        (mq.size.aspectRatio > 1.3 && mq.size.height < 450);
     final roomAsync = ref.watch(currentRoomProvider(widget.roomId));
     final currentUser = ref.watch(authStateProvider).valueOrNull;
+
+    // When minimized into Picture-in-Picture mode, render exclusively the full-bleed player without bars or headers
+    if (isPip) {
+      return ColoredBox(
+        color: Colors.black,
+        child: NowPlayingView(
+          roomId: widget.roomId,
+          canControl: false,
+          isPipMode: true,
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -232,15 +271,21 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
           return Stack(
             children: [
               SafeArea(
+                top: !isPip,
+                bottom: !isPip,
+                left: !isPip,
+                right: !isPip,
                 child: Padding(
-                  padding: _isYouTubeHubMode
-                      ? const EdgeInsets.fromLTRB(AppDimens.xs, AppDimens.xs, AppDimens.xs, 0)
-                      : const EdgeInsets.all(AppDimens.md),
+                  padding: isPip
+                      ? EdgeInsets.zero
+                      : (_isYouTubeHubMode
+                          ? const EdgeInsets.fromLTRB(AppDimens.xs, AppDimens.xs, AppDimens.xs, 0)
+                          : const EdgeInsets.all(AppDimens.md)),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Room Header Card (Hidden in YouTube Hub mode to maximize search & browse space)
-                      if (!_isYouTubeHubMode) ...[
+                      // Room Header Card (Hidden in PiP and YouTube Hub mode to maximize video / search space)
+                      if (!isPip && !_isYouTubeHubMode) ...[
                         GlassContainer(
                           child: Row(
                             children: [
@@ -304,14 +349,15 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                         child: NowPlayingView(
                           roomId: widget.roomId,
                           canControl: room.canChangeSongs(currentUser?.uid ?? ''),
+                          isPipMode: isPip,
                           onHubModeChanged: (isHub) {
                             setState(() => _isYouTubeHubMode = isHub);
                           },
                         ),
                       ),
 
-                      // These bottom elements collapse completely when YouTube Hub is active
-                      if (!_isYouTubeHubMode) ...[
+                      // These bottom elements collapse completely when in PiP or YouTube Hub mode
+                      if (!isPip && !_isYouTubeHubMode) ...[
                         const SizedBox(height: AppDimens.sm),
 
                         // Live Floating Emoji Reactions Bar
@@ -439,10 +485,11 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                 ),
               ),
 
-              // Fullscreen Floating Reaction Canvas
-              Positioned.fill(
-                child: FloatingReactionCanvas(roomId: widget.roomId),
-              ),
+              // Fullscreen Floating Reaction Canvas (disabled in PiP mode)
+              if (!isPip)
+                Positioned.fill(
+                  child: FloatingReactionCanvas(roomId: widget.roomId),
+                ),
             ],
           );
         },

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/lifecycle/app_lifecycle_manager.dart';
 import 'core/theme/app_theme.dart';
 import 'core/routing/app_router.dart';
 import 'core/constants/app_constants.dart';
@@ -17,11 +18,13 @@ class CoListenApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       routerConfig: router,
-      builder: (context, child) => Stack(
-        children: [
-          child ?? const SizedBox.shrink(),
-          const VersionControlGate(),
-        ],
+      builder: (context, child) => AppLifecycleManager(
+        child: Stack(
+          children: [
+            child ?? const SizedBox.shrink(),
+            const VersionControlGate(),
+          ],
+        ),
       ),
     );
   }

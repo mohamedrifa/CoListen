@@ -75,13 +75,21 @@ class _WaveformScrubberState extends State<WaveformScrubber> {
                 style: AppTypography.labelSmall,
               ),
               if (!widget.canControl)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.lock_outline, size: 12, color: AppColors.textMuted),
-                    const SizedBox(width: 4),
-                    Text('DJ Controlled', style: AppTypography.labelSmall),
-                  ],
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.lock_outline, size: 12, color: AppColors.textMuted),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          'DJ Controlled',
+                          style: AppTypography.labelSmall,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               Text(
                 _formatDuration(widget.duration),

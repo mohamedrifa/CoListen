@@ -389,10 +389,13 @@ class _RoomHistoryCard extends ConsumerWidget {
                       const SizedBox(height: 3),
                       Row(
                         children: [
-                          Text(
-                            'Host: ${item.adminName}',
-                            style: AppTypography.bodySmall.copyWith(
-                              color: AppColors.textMuted,
+                          Flexible(
+                            child: Text(
+                              'Host: ${item.adminName}',
+                              style: AppTypography.bodySmall.copyWith(
+                                color: AppColors.textMuted,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 8),
